@@ -7,7 +7,7 @@
 <title>Розклад</title>
 <!--
   Розклад дзвінків і уроків, 2026–2027 н. р.
-  Щоб змінити розклад, дзвінки чи канікули — редагуйте блок «ДАНІ» у скрипті нижче.
+  Щоб змінити розклад, дзвінки, канікули чи інші таблиці — редагуйте блок «ДАНІ» у скрипті нижче.
 -->
 <style>
 @font-face {
@@ -18,7 +18,7 @@
   font-display: block;
 }
 
-/* Кольори за замовчуванням (скрипт нижче замінює їх вибраними в налаштуваннях) */
+/* Значення за замовчуванням (скрипт нижче замінює їх вибраними в налаштуваннях) */
 :root {
   --bg: #ffffff;
   --fg: #000000;
@@ -29,7 +29,10 @@
   --on-next: #000000;
   --panel: var(--bg);
   --panel-real: var(--bg);
+  --bg-85: var(--bg);
   --dim: 0;
+  --blur: 0px;
+  --radius: 0px;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--inset-top, 0px));
   --safe-right: max(env(safe-area-inset-right, 0px), var(--inset-right, 0px));
   --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--inset-bottom, 0px));
@@ -46,7 +49,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { height: 100%; background: var(--bg); scroll-padding-top: var(--safe-top); }
+html { min-height: 100%; background: var(--bg); scroll-padding-top: var(--safe-top); }
 body {
   margin: 0;
   min-height: 100%;
@@ -82,15 +85,21 @@ svg { display: block; }
 #wp { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; background: center / cover no-repeat; }
 #wp::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
 html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5px var(--bg), 0 0 9px var(--bg); }
+html.has-blur .today, html.has-blur .bar button, html.has-blur .tbl, html.has-blur .status,
+html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
+}
 
-#app { max-width: 620px; margin: 0 auto; padding: 8px 10px 14px; }
+#app { max-width: 620px; margin: 0 auto; padding: 8px 10px 16px; }
 
 /* Шапка */
 .bar { display: flex; gap: 6px; }
+.bar button { border-radius: var(--radius); }
 .today {
   flex: 1; min-width: 0; min-height: 44px;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 0 10px; border: 2px solid var(--line); background: var(--panel);
+  padding: 0 10px; border: 2px solid var(--line); border-radius: var(--radius); background: var(--panel);
 }
 .today .d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .today .t { font-size: 20px; font-variant-numeric: tabular-nums; }
@@ -101,7 +110,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
 .title { margin: 12px 0 6px; font-size: 15px; font-weight: 700; letter-spacing: .12em; text-align: center; }
 
 /* Таблиці з рамками */
-.tbl { border: 2px solid var(--line); background: var(--panel); }
+.tbl { border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
 .tr { display: grid; min-height: var(--row); }
 .tr + .tr { border-top: 1px solid var(--line); }
 .bells .tr { grid-template-columns: 2.3em 1fr 1.3fr; }
@@ -116,9 +125,10 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
 .td small { font-size: 12px; }
 .hl-now { background: var(--now); color: var(--on-now); }
 .hl-next { background: var(--next); color: var(--on-next); }
+.hl-mine { background: var(--fg); color: var(--bg); }
 
 /* Скільки залишилось */
-.status { display: grid; grid-template-columns: 1fr 1fr; margin-top: 6px; border: 2px solid var(--line); background: var(--panel); }
+.status { display: grid; grid-template-columns: 1fr 1fr; margin-top: 6px; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
 .status.one { grid-template-columns: 1fr; }
 .cell { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 6px 7px; text-align: center; }
 .cell + .cell { border-left: 1px solid var(--line); }
@@ -129,20 +139,56 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
 
 .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; min-height: 20px; margin-top: 6px; font-size: 14px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
-.sw { width: 13px; height: 13px; flex: none; border: 1px solid var(--line); }
+.sw { width: 13px; height: 13px; flex: none; border: 1px solid var(--line); border-radius: calc(var(--radius) / 4); }
 .sw.now { background: var(--now); }
 .sw.next { background: var(--next); }
 
-/* Нижня половина */
+/* Нижня половина першого екрана */
 .bottom { margin-top: 12px; border-top: 5px double var(--line); }
-.days { display: grid; grid-template-columns: repeat(5, 1fr); border: 2px solid var(--line); border-bottom: 0; }
-.days button { position: relative; min-height: 38px; padding: 0; border: 0; }
+.days {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  border: 2px solid var(--line); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0;
+  overflow: hidden; background: var(--panel);
+}
+.days button { position: relative; min-height: 38px; padding: 0; border: 0; background: transparent; }
 .days button + button { border-left: 1px solid var(--line); }
+.days button.sel, .days button:active { background: var(--fg); color: var(--bg); }
 .days button.is-today::after {
   content: ""; position: absolute; left: 50%; bottom: 4px;
   width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: currentColor;
 }
+.tbl.lessons { border-radius: 0 0 var(--radius) var(--radius); }
 .empty { padding: 16px 10px; text-align: center; }
+
+/* Додаткові таблиці нижче (гортаються) */
+.extra { margin-top: 16px; border-top: 5px double var(--line); }
+.box {
+  margin-bottom: 8px; padding: 8px 10px 9px; text-align: center;
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--panel);
+}
+.box .lbl { font-size: 14px; }
+.box .big { margin-top: 2px; font-size: 22px; font-variant-numeric: tabular-nums; }
+.box .sub { margin-top: 2px; font-size: 14px; }
+.info .tr { min-height: 38px; }
+.info .td { white-space: normal; text-align: center; }
+.info .td.left { justify-content: flex-start; text-align: left; padding-left: 10px; }
+.info .td.stack { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; }
+.info .tr.sect { grid-template-columns: 1fr; }
+.info .tr.sect .td { font-size: 14px; letter-spacing: .06em; }
+.year .tr { grid-template-columns: 1fr 1.45fr; }
+.meal .tr { grid-template-columns: 2.3em 1fr 5.5em; }
+.evac .tr, .duty .tr { grid-template-columns: 7.4em 1fr; }
+
+.cd-main { border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+.cd-head { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--line); }
+.cd-grid { display: grid; grid-template-columns: repeat(4, 1fr); }
+.cd-grid > div { padding: 6px 2px 8px; text-align: center; }
+.cd-grid > div + div { border-left: 1px solid var(--line); }
+.cd-num { font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.cd-unit { font-size: 13px; }
+.cd-list { margin-top: 8px; }
+.cd-list .tr { grid-template-columns: 1fr auto; }
+.cd-list .td.time { padding: 2px 10px; font-variant-numeric: tabular-nums; }
 
 /* Налаштування і перший запуск */
 .sheet {
@@ -153,53 +199,74 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
 }
 .panel { max-width: 520px; margin: 0 auto; }
 .phead { display: flex; gap: 6px; }
-.phead h1 { flex: 1; margin: 0; padding: 10px 8px; border: 2px solid var(--line); font-size: 20px; text-align: center; }
+.phead h1 { flex: 1; margin: 0; padding: 10px 8px; border: 2px solid var(--line); border-radius: var(--radius); font-size: 20px; text-align: center; }
+.phead button { border-radius: var(--radius); }
 .group { margin: 22px 0 6px; font-size: 17px; }
-.opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); border: 2px solid var(--line); }
+.opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .opts button { min-height: 56px; padding: 0 4px; border: 0; font-size: 19px; }
 .opts.themes { grid-template-columns: repeat(3, 1fr); }
 .opts.themes button { font-size: 16px; }
 .foot { margin: 20px 0 0; font-size: 14px; text-align: center; }
 
 .wp-prev {
-  position: relative; height: 150px; overflow: hidden;
+  position: relative; margin: 0 auto; width: 100%; height: 70px; overflow: hidden;
   display: flex; align-items: center; justify-content: center;
-  border: 2px solid var(--line); background: var(--bg) center / cover no-repeat;
+  border: 2px solid var(--line); border-radius: var(--radius); background: var(--bg) center / cover no-repeat;
 }
 .wp-prev::before { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
-.wp-sample { position: relative; padding: 8px 14px; border: 1px solid var(--line); background: var(--panel-real); font-variant-numeric: tabular-nums; }
-.row2 { display: flex; gap: 6px; margin-top: 6px; }
-.row2 button { flex: 1; }
+.wp-sample {
+  position: relative; padding: 5px 8px; font-size: 11px; font-variant-numeric: tabular-nums;
+  border: 1px solid var(--line); border-radius: calc(var(--radius) * var(--pv, 0.3)); background: var(--panel-real);
+  -webkit-backdrop-filter: blur(calc(var(--blur) * var(--pv, 0.3)));
+  backdrop-filter: blur(calc(var(--blur) * var(--pv, 0.3)));
+}
+.wp-prev.empty .wp-sample { font-size: 15px; padding: 6px 12px; }
+.row2 { display: flex; gap: 6px; margin-top: 8px; }
+.row2 button { flex: 1; padding: 0 6px; font-size: 15px; border-radius: var(--radius); }
 .note { margin: 8px 0 0; font-size: 14px; }
 .slider { margin-top: 14px; }
 .slider label { display: flex; justify-content: space-between; gap: 10px; }
 .slider input { display: block; width: 100%; margin: 10px 0 0; accent-color: var(--fg); }
 
-.cmode { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 2px solid var(--line); }
+.cmode { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .cmode button { min-height: 44px; border: 0; }
 .cprev { margin-top: 8px; background: var(--bg); color: var(--fg); }
 .cprev .tr { grid-template-columns: 2.3em 1fr 1fr; min-height: 34px; }
-.crows { margin-top: 8px; border: 2px solid var(--line); }
+.crows { margin-top: 8px; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; }
 .crow { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 50px; border: 0; text-align: left; }
 .crow + .crow, .swatches + .crow { border-top: 1px solid var(--line); }
-.chip { flex: none; width: 40px; height: 26px; border: 2px solid var(--line); }
+.chip { flex: none; width: 40px; height: 26px; border: 2px solid var(--line); border-radius: calc(var(--radius) / 2); }
 .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
-.swatches button { min-height: 40px; padding: 0; }
+.swatches button { min-height: 40px; padding: 0; border-radius: calc(var(--radius) / 2); }
 .swatches button.sel { outline: 3px solid var(--fg); outline-offset: 2px; }
-.sw-other { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 0 12px; border: 2px solid var(--line); cursor: pointer; }
+.sw-other { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 0 12px; border: 2px solid var(--line); border-radius: calc(var(--radius) / 2); cursor: pointer; }
 .sw-other input { -webkit-appearance: none; appearance: none; width: 60px; height: 32px; padding: 0; border: 2px solid var(--line); background: none; }
 .sw-other input::-webkit-color-swatch-wrapper { padding: 0; }
 .sw-other input::-webkit-color-swatch { border: 0; }
-.reset { width: 100%; margin-top: 8px; }
+.reset { width: 100%; margin-top: 8px; border-radius: var(--radius); }
+
+/* Редактор шпалер: пересунути і збільшити фото */
+.editor { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; background: #000; }
+.ed-img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: center / cover no-repeat; touch-action: none; cursor: grab; }
+.ed-img::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); pointer-events: none; }
+.ed-bar {
+  --panel: var(--bg);
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 12px);
+  background: var(--bg-85); border-top: 2px solid var(--line);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.ed-bar .panel { max-width: 520px; }
+.ed-hint { margin: 0 0 8px; font-size: 14px; text-align: center; }
 
 @media (max-width: 340px) {
   body { font-size: 15px; }
-  .val { font-size: 26px; }
+  .val, .cd-num { font-size: 26px; }
 }
 @media (orientation: landscape) and (min-width: 700px) {
   #app { max-width: 1180px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-items: start; }
   .bar { grid-column: 1 / -1; }
-  .bottom { margin-top: 0; border-top: 0; }
+  .bottom, .extra { margin-top: 0; border-top: 0; }
 }
 </style>
 <script>
@@ -207,7 +274,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   "use strict";
 
   /* =====================================================================
-     ДАНІ. Щоб змінити розклад — редагуйте тільки цей блок.
+     ДАНІ. Щоб змінити розклад чи таблиці — редагуйте тільки цей блок.
      ===================================================================== */
 
   // Розклад дзвінків: [початок, кінець]. Перший рядок — 1-й урок.
@@ -222,10 +289,10 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     ["14:55", "15:40"] // 8-й урок: на листку дзвінків його немає, час приблизний
   ];
 
-  // Семестри і канікули (рррр-мм-дд, дати включно)
+  // Структура навчального року (рррр-мм-дд, дати включно)
   const TERMS = [
-    ["2026-09-01", "2026-12-25"],
-    ["2027-01-13", "2027-05-31"]
+    ["2026-09-01", "2026-12-25", "I семестр"],
+    ["2027-01-13", "2027-05-31", "II семестр"]
   ];
   const HOLIDAYS = [
     ["2026-10-26", "2026-11-01", "Осінні канікули"],
@@ -310,6 +377,44 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     ]
   };
 
+  // Графік харчування: хто, о котрій, і які класи з налаштувань до цього рядка належать
+  const MEALS = [
+    { who: "1", time: "09:55", cls: [] },
+    { who: "2–4", time: "10:00", cls: [] },
+    { who: "5", time: "10:05", cls: ["5"] },
+    { who: "Сойми", time: "10:30", cls: [] },
+    { who: "6-А, 6-Б", time: "11:00", cls: ["6-А", "6-Б"] },
+    { who: "7-А, 7-Б, 8", time: "11:10", cls: ["7-А", "7-Б", "8"] },
+    { who: "9", time: "12:00", cls: ["9"] },
+    { who: "10–11", time: "12:10", cls: ["10-А", "10-Б", "11"] }
+  ];
+
+  // План евакуації учасників освітнього процесу
+  const EVACUATION = [
+    { floor: "I поверх", rows: [
+      { who: "1–4 класи", route: "запасний вихід №3, укриття №2", cls: [] }
+    ] },
+    { floor: "II поверх", rows: [
+      { who: "6-А", route: "вихід №1, №3, укриття №2", cls: ["6-А"] },
+      { who: "5, 10-А, 7-Б", route: "запасний вихід №2, укриття №1", cls: ["5", "10-А", "7-Б"] },
+      { who: "6-Б", route: "запасний вихід №2, укриття №1", cls: ["6-Б"] },
+      { who: "7-А, 8", route: "вихід №1, укриття №1", cls: ["7-А", "8"] }
+    ] },
+    { floor: "III поверх", rows: [
+      { who: "10-Б, 11", route: "вихід №1, укриття №1", cls: ["10-Б", "11"] },
+      { who: "9", route: "вихід №1, укриття №1", cls: ["9"] }
+    ] }
+  ];
+
+  // Чергування учнів (1 — понеділок … 5 — п’ятниця)
+  const DUTY = [
+    { day: 1, items: [{ cls: "7-А", where: "I, III поверх" }, { cls: "7-Б", where: "II поверх, подвір’я" }] },
+    { day: 2, items: [{ cls: "8", where: "" }] },
+    { day: 3, items: [{ cls: "9", where: "" }] },
+    { day: 4, items: [{ cls: "10-А", where: "" }] },
+    { day: 5, items: [{ cls: "10-Б", where: "" }] }
+  ];
+
   /* Кольори тем за замовчуванням і набір готових кольорів для налаштувань */
   const DEFAULT_COLORS = {
     light: { bg: "#ffffff", text: "#000000", line: "#000000", now: "#00c853", next: "#ffd600" },
@@ -333,12 +438,17 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
 
   const DAY_NAMES = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П’ятниця", "Субота"];
   const DAY_SHORT = ["НД", "ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ"];
+  const DAY_WHEN = ["", "у понеділок", "у вівторок", "у середу", "у четвер", "у п’ятницю", ""];
   const HEX = /^#[0-9a-f]{6}$/;
 
   const $ = (id) => document.getElementById(id);
   const pad = (n) => (n < 10 ? "0" : "") + n;
   const dateKey = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const keyDate = (k) => new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+  const keyAdd = (k, n) => { const d = keyDate(k); d.setDate(d.getDate() + n); return dateKey(d); };
   const ddmm = (k) => k.slice(8, 10) + "." + k.slice(5, 7);
+  const ddmmyyyy = (k) => ddmm(k) + "." + k.slice(0, 4);
+  const range = (a, b) => (a.slice(0, 4) === b.slice(0, 4) ? ddmm(a) : ddmmyyyy(a)) + " – " + ddmmyyyy(b);
   const toSec = (hm) => { const p = hm.split(":"); return +p[0] * 3600 + +p[1] * 60; };
   const startOf = (i) => toSec(BELLS[i][0]);
   const endOf = (i) => toSec(BELLS[i][1]);
@@ -348,6 +458,12 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     const n = parseInt(v, 10);
     return isNaN(n) ? def : Math.min(max, Math.max(min, n));
   };
+  function plural(n, one, few, many) {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return one;
+    if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+    return many;
+  }
 
   /* ---------- Сховище: у застосунку — через Android, у браузері — localStorage ---------- */
   const A = window.Android;
@@ -387,6 +503,16 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   }
   const now = () => new Date(Date.now() + shift);
 
+  function parseCrop(s) {
+    try {
+      const c = JSON.parse(s || "");
+      if (c && isFinite(c.cx) && isFinite(c.cy) && isFinite(c.zoom)) {
+        return { cx: +c.cx, cy: +c.cy, zoom: Math.min(4, Math.max(1, +c.zoom)) };
+      }
+    } catch (e) { /* за замовчуванням */ }
+    return { cx: 0.5, cy: 0.5, zoom: 1 };
+  }
+
   let cls = params.get("cls") || store.get("cls");
   if (CLASSES.indexOf(cls) < 0) cls = null;
   let themePref = params.get("theme") || store.get("theme") || "system";
@@ -395,10 +521,14 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   try { colors = JSON.parse(store.get("colors") || "{}") || {}; } catch (e) { colors = {}; }
   let wpData = bigStore.get("wallpaper");
   if (wpData.indexOf("data:image/") !== 0) wpData = "";
+  let wpCrop = parseCrop(store.get("wpCrop"));
+  let wpSize = null;
   let wpDim = clampInt(store.get("wpDim"), 0, 90, 0);
   let wpClear = clampInt(store.get("wpClear"), 0, 100, 40);
+  let wpBlur = clampInt(store.get("wpBlur"), 0, 100, 0);
+  let radiusPct = clampInt(store.get("radius"), 0, 100, 0);
 
-  /* ---------- Кольори і тема ---------- */
+  /* ---------- Кольори, тема, вигляд ---------- */
   function hexRgb(hex) {
     const n = parseInt(String(hex).slice(1), 16);
     return isNaN(n) ? [0, 0, 0] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -432,14 +562,19 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     return mq && mq.matches ? "dark" : "light";
   }
 
-  function applyWallpaperVars() {
+  function applyLookVars() {
     const p = palette(effectiveMode());
     const panel = wpData ? rgba(p.bg, (100 - wpClear) / 100) : p.bg;
     const s = document.documentElement.style;
     s.setProperty("--panel", panel);
     s.setProperty("--panel-real", panel);
+    s.setProperty("--bg-85", rgba(p.bg, 0.85));
     s.setProperty("--dim", String(wpData ? wpDim / 100 : 0));
-    document.documentElement.classList.toggle("has-wp", !!wpData);
+    s.setProperty("--blur", (wpData ? wpBlur / 5 : 0) + "px");
+    s.setProperty("--radius", (radiusPct * 0.24).toFixed(1) + "px");
+    const c = document.documentElement.classList;
+    c.toggle("has-wp", !!wpData);
+    c.toggle("has-blur", !!wpData && wpBlur > 0);
   }
   function applyColors() {
     const p = palette(effectiveMode());
@@ -452,7 +587,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     s.setProperty("--on-now", onColor(p.now));
     s.setProperty("--on-next", onColor(p.next));
     s.colorScheme = isLight(p.bg) ? "light" : "dark";
-    applyWallpaperVars();
+    applyLookVars();
     if (IN_APP && typeof A.setBars === "function") { try { A.setBars(p.bg); } catch (e) { /* без смуг */ } }
   }
   function saveColors() {
@@ -539,6 +674,11 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     sec = Math.max(0, Math.floor(sec));
     const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
     return h ? h + ":" + pad(m) + ":" + pad(s) : pad(m) + ":" + pad(s);
+  }
+  function fmtIn(sec) {
+    const m = Math.ceil(sec / 60);
+    const h = Math.floor(m / 60), r = m % 60;
+    return "через " + (h ? h + " год" + (r ? " " + r + " хв" : "") : r + " хв");
   }
   const isNow = (st, i) => !!st && st.type === "lesson" && st.cur === i;
   const isNext = (st, i) => !!st && (st.type === "lesson" || st.type === "break" || st.type === "before") && st.next === i;
@@ -628,12 +768,169 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     $("lessons").innerHTML = h;
   }
 
+  /* ---------- Структура навчального року і відлік до канікул ---------- */
+  function yearEvents(ms) {
+    const ev = HOLIDAYS.map((h) => ({ name: h[2], from: h[0], to: h[1] }));
+    ev.push({ name: "Літні канікули", from: keyAdd(TERMS[TERMS.length - 1][1], 1), to: "" });
+    return ev.map((e) => {
+      const start = keyDate(e.from).getTime();
+      const end = e.to ? keyDate(keyAdd(e.to, 1)).getTime() : Infinity;
+      e.state = ms < start ? "soon" : ms < end ? "now" : "past";
+      e.target = e.state === "soon" ? start : e.state === "now" && isFinite(end) ? end : 0;
+      return e;
+    });
+  }
+  function splitDur(ms) {
+    let s = Math.max(0, Math.floor(ms / 1000));
+    const d = Math.floor(s / 86400); s -= d * 86400;
+    const h = Math.floor(s / 3600); s -= h * 3600;
+    const m = Math.floor(s / 60); s -= m * 60;
+    return { d, h, m, s };
+  }
+
+  function renderYear(k) {
+    const nextHol = HOLIDAYS.find((h) => h[0] > k);
+    let h = '<div class="tr thead"><div class="td left">Період</div><div class="td">Дати</div></div>';
+    const row = (name, a, b) => {
+      const rc = k >= a && k <= b ? " hl-now" : nextHol && nextHol[0] === a ? " hl-next" : "";
+      return '<div class="tr' + rc + '"><div class="td left">' + esc(name) + '</div><div class="td">' + range(a, b) + "</div></div>";
+    };
+    for (const t of TERMS) h += row(t[2], t[0], t[1]);
+    h += '<div class="tr sect"><div class="td">Канікули</div></div>';
+    for (const x of HOLIDAYS) h += row(x[2].replace(" канікули", ""), x[0], x[1]);
+    $("yearTbl").innerHTML = h;
+  }
+
+  let cdMain = null;     // великий відлік до найближчих канікул
+  let cdRows = [];       // решта канікул
+  function renderCountdown(ms) {
+    const ev = yearEvents(ms).filter((e) => e.state !== "past");
+    cdMain = null;
+    cdRows = [];
+    if (!ev.length) {
+      $("countdown").innerHTML = '<div class="box"><div class="big">Навчальний рік завершено</div></div>';
+      return;
+    }
+    const first = ev[0];
+    let h = '<div class="cd-main"><div class="cd-head' + (first.state === "now" ? " hl-now" : "") + '">' +
+      esc(first.state === "now"
+        ? first.name + (first.target ? " тривають. До навчання:" : " тривають!")
+        : first.name + ", з " + ddmm(first.from)) + "</div>";
+    if (first.target) {
+      h += '<div class="cd-grid">' + ["d", "h", "m", "s"].map((p) =>
+        '<div><div class="cd-num" data-p="' + p + '"></div><div class="cd-unit" data-u="' + p + '"></div></div>').join("") + "</div>";
+    }
+    h += "</div>";
+    if (ev.length > 1) {
+      h += '<div class="tbl info cd-list">';
+      ev.slice(1).forEach((e, i) => {
+        h += '<div class="tr"><div class="td left stack">' + esc(e.name) + "<small>з " + ddmm(e.from) + "</small></div>" +
+          '<div class="td time" data-cdi="' + i + '"></div></div>';
+      });
+      h += "</div>";
+    }
+    $("countdown").innerHTML = h;
+    if (first.target) cdMain = { el: $("countdown").querySelector(".cd-main"), target: first.target };
+    cdRows = ev.slice(1).map((e, i) => ({ el: $("countdown").querySelector('[data-cdi="' + i + '"]'), target: e.target }));
+  }
+  function updateCountdown(ms) {
+    let expired = false;
+    if (cdMain) {
+      const left = cdMain.target - ms;
+      if (left <= 0) expired = true;
+      const p = splitDur(left);
+      const units = {
+        d: plural(p.d, "день", "дні", "днів"),
+        h: plural(p.h, "година", "години", "годин"),
+        m: plural(p.m, "хвилина", "хвилини", "хвилин"),
+        s: plural(p.s, "секунда", "секунди", "секунд")
+      };
+      for (const key of ["d", "h", "m", "s"]) {
+        cdMain.el.querySelector('[data-p="' + key + '"]').textContent = key === "d" ? String(p[key]) : pad(p[key]);
+        cdMain.el.querySelector('[data-u="' + key + '"]').textContent = units[key];
+      }
+    }
+    for (const r of cdRows) {
+      const left = r.target - ms;
+      if (left <= 0) expired = true;
+      const p = splitDur(left);
+      r.el.textContent = p.d + " дн. " + pad(p.h) + ":" + pad(p.m) + ":" + pad(p.s);
+    }
+    return expired;
+  }
+
+  /* ---------- Харчування, евакуація, чергування ---------- */
+  function box(label, big, sub) {
+    return '<div class="lbl">' + esc(label) + '</div><div class="big">' + esc(big) + "</div>" +
+      '<div class="sub" data-sub' + (sub ? "" : " hidden") + ">" + esc(sub || "") + "</div>";
+  }
+  let mealMine = null;
+  function renderMeals() {
+    let h = '<div class="tr thead"><div class="td">№</div><div class="td">Клас</div><div class="td">Час</div></div>';
+    MEALS.forEach((m, i) => {
+      const mine = cls && m.cls.indexOf(cls) >= 0;
+      h += '<div class="tr' + (mine ? " hl-mine" : "") + '"><div class="td">' + (i + 1) + '</div><div class="td">' +
+        esc(m.who) + '</div><div class="td">' + m.time + "</div></div>";
+    });
+    $("mealTbl").innerHTML = h;
+    mealMine = cls ? MEALS.find((m) => m.cls.indexOf(cls) >= 0) || null : null;
+    $("mealMine").hidden = !mealMine;
+    if (mealMine) $("mealMine").innerHTML = box("Харчування вашого класу", mealMine.time, "");
+  }
+  function updateMealHint(d, info) {
+    if (!mealMine) return;
+    const el = $("mealMine").querySelector("[data-sub]");
+    const t = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+    const m = toSec(mealMine.time);
+    let text = "";
+    if (info.school && t < m) text = fmtIn(m - t);
+    else if (info.school && t < m + 20 * 60) text = "зараз";
+    el.textContent = text;
+    el.hidden = !text;
+  }
+  function renderEvacuation() {
+    let h = '<div class="tr thead"><div class="td">Клас</div><div class="td left">Вихід і укриття</div></div>';
+    let mine = null;
+    for (const f of EVACUATION) {
+      h += '<div class="tr sect"><div class="td">' + esc(f.floor) + "</div></div>";
+      for (const r of f.rows) {
+        const my = cls && r.cls.indexOf(cls) >= 0;
+        if (my) mine = { floor: f.floor, route: r.route };
+        h += '<div class="tr' + (my ? " hl-mine" : "") + '"><div class="td">' + esc(r.who) +
+          '</div><div class="td left">' + esc(r.route) + "</div></div>";
+      }
+    }
+    $("evacTbl").innerHTML = h;
+    $("evacMine").hidden = !mine;
+    if (mine) $("evacMine").innerHTML = box("Ваш клас, " + mine.floor, mine.route, "");
+  }
+  function renderDuty(todayWd) {
+    let h = '<div class="tr thead"><div class="td left">День</div><div class="td left">Класи</div></div>';
+    let mine = null;
+    for (const r of DUTY) {
+      const item = r.items.find((x) => x.cls === cls);
+      if (item) mine = { day: r.day, where: item.where };
+      const who = r.items.map((x) => esc(x.cls) + (x.where ? ": " + esc(x.where) : "")).join("<br>");
+      h += '<div class="tr' + (item ? " hl-mine" : "") + '"><div class="td left stack">' + DAY_NAMES[r.day] +
+        (r.day === todayWd ? "<small>сьогодні</small>" : "") + '</div><div class="td left">' + who + "</div></div>";
+    }
+    $("dutyTbl").innerHTML = h;
+    const el = $("dutyMine");
+    el.hidden = !cls;
+    if (!cls) return;
+    if (!mine) el.innerHTML = box("Чергування вашого класу", "не чергує", "");
+    else el.innerHTML = box("Чергування вашого класу", mine.day === todayWd ? "сьогодні" : DAY_WHEN[mine.day], mine.where);
+  }
+
+  /* ---------- Щосекундне оновлення ---------- */
   let viewDay = 0;   // 0 — автоматично: сьогодні або наступний навчальний день
   let lastDate = "";
   let lastSig = "";
+  let lastExtra = "";
 
   function tick() {
     const d = now();
+    const ms = d.getTime();
     const k = dateKey(d);
     if (k !== lastDate) { lastDate = k; viewDay = 0; }
 
@@ -653,30 +950,74 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     const wd = viewDay || auto;
     const shown = lessonsOf(cls, wd);
     const rows = Math.max(7, span(today).last + 1, span(shown).last + 1);
+    const todayWd = info.school ? d.getDay() : 0;
 
     const sig = [k, cls, wd, rows, st.type, st.cur, st.next, st.after, st.last].join("|");
     if (sig !== lastSig) {
       lastSig = sig;
       $("clsBtn").textContent = cls || "Клас";
-      // скільки рядків у двох таблицях — щоб вони разом заповнили екран
+      // скільки рядків у двох таблицях — щоб вони разом заповнили перший екран
       document.documentElement.style.setProperty("--rows", String(rows + 2 + Math.max(1, span(shown).last + 1)));
       renderBells(st, rows);
       renderStatus(st, info, nextDay);
       renderLegend(st, today);
-      renderDays(wd, info.school ? d.getDay() : 0);
+      renderDays(wd, todayWd);
       renderLessons(wd, info.school && wd === d.getDay() ? st : null);
     }
+    const extraSig = [k, cls, yearEvents(ms).map((e) => e.state).join()].join("|");
+    if (extraSig !== lastExtra) {
+      lastExtra = extraSig;
+      renderYear(k);
+      renderCountdown(ms);
+      renderMeals();
+      renderEvacuation();
+      renderDuty(todayWd);
+    }
     if (leftEl && typeof st.left === "number") leftEl.textContent = fmtLeft(st.left);
+    if (updateCountdown(ms)) lastExtra = "";
+    updateMealHint(d, info);
   }
 
-  /* ---------- Шпалери ---------- */
+  /* ---------- Шпалери: показ, обрізка і масштаб ---------- */
+  // Де опиниться фото в рамці W×H: масштаб відносно «заповнити» і точка фото в центрі рамки.
+  function coverLayout(W, H, crop) {
+    if (!wpSize || !W || !H) return null;
+    const s = Math.max(W / wpSize.w, H / wpSize.h) * crop.zoom;
+    const dw = wpSize.w * s, dh = wpSize.h * s;
+    const x = Math.min(0, Math.max(W - dw, W / 2 - crop.cx * dw));
+    const y = Math.min(0, Math.max(H - dh, H / 2 - crop.cy * dh));
+    return { dw, dh, x, y };
+  }
+  function placeBg(el, crop) {
+    const L = coverLayout(el.clientWidth, el.clientHeight, crop);
+    el.style.backgroundSize = L ? L.dw + "px " + L.dh + "px" : "cover";
+    el.style.backgroundPosition = L ? L.x + "px " + L.y + "px" : "center";
+  }
+  function layoutWallpaper() {
+    if (wpData) placeBg($("wp"), wpCrop);
+    if (sheetMode === "settings") sizePreview();
+    if (!$("editor").hidden) layoutEditor();
+  }
   function showWallpaper() {
     const el = $("wp");
     el.style.backgroundImage = wpData ? 'url("' + wpData + '")' : "none";
     el.hidden = !wpData;
-    applyWallpaperVars();
+    applyLookVars();
+    wpSize = null;
+    return new Promise((resolve) => {
+      if (!wpData) { resolve(); return; }
+      const src = wpData;
+      const img = new Image();
+      img.onload = () => {
+        if (src === wpData) wpSize = { w: img.naturalWidth, h: img.naturalHeight };
+        layoutWallpaper();
+        resolve();
+      };
+      img.onerror = () => resolve();
+      img.src = src;
+    });
   }
-  // Зменшуємо фото до 1920 px по довшій стороні, щоб швидко відкривалось і мало займало.
+  // Зменшуємо фото до 2400 px по довшій стороні: вистачає для збільшення і швидко відкривається.
   function shrinkPhoto(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -685,14 +1026,14 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
         const img = new Image();
         img.onload = () => {
           try {
-            const k = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+            const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
             const w = Math.max(1, Math.round(img.naturalWidth * k));
             const h = Math.max(1, Math.round(img.naturalHeight * k));
             const c = document.createElement("canvas");
             c.width = w;
             c.height = h;
             c.getContext("2d").drawImage(img, 0, 0, w, h);
-            resolve(c.toDataURL("image/jpeg", 0.82));
+            resolve(c.toDataURL("image/jpeg", 0.85));
           } catch (e) { reject(e); }
         };
         img.onerror = () => reject(new Error("decode"));
@@ -708,19 +1049,120 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     setWpNote("Обробляю фото…");
     try {
       wpData = await shrinkPhoto(file);
-      const saved = bigStore.set("wallpaper", wpData);
-      showWallpaper();
-      renderWallpaper();
-      setWpNote(saved ? "" : "Фото не вдалося зберегти: воно діятиме, доки застосунок відкритий.");
     } catch (e) {
       setWpNote("Не вдалося відкрити це фото. Спробуйте інше, у форматі JPG або PNG.");
+      return;
     }
+    const saved = bigStore.set("wallpaper", wpData);
+    wpCrop = { cx: 0.5, cy: 0.5, zoom: 1 };
+    store.set("wpCrop", JSON.stringify(wpCrop));
+    await showWallpaper();
+    renderWallpaper();
+    setWpNote(saved ? "" : "Фото не вдалося зберегти: воно діятиме, доки застосунок відкритий.");
+    openEditor();
+  }
+
+  // Редактор: пересунути пальцем, збільшити двома пальцями або повзунком.
+  let edCrop = null;
+  const touches = new Map();
+  function openEditor() {
+    if (!wpData || !wpSize) return;
+    edCrop = Object.assign({}, wpCrop);
+    $("edImg").style.backgroundImage = 'url("' + wpData + '")';
+    $("editor").hidden = false;
+    layoutEditor();
+  }
+  function closeEditor(save) {
+    if (save && edCrop) {
+      wpCrop = edCrop;
+      store.set("wpCrop", JSON.stringify(wpCrop));
+      layoutWallpaper();
+    }
+    touches.clear();
+    $("editor").hidden = true;
+  }
+  function layoutEditor() {
+    const el = $("edImg");
+    const W = el.clientWidth, H = el.clientHeight;
+    const L = coverLayout(W, H, edCrop);
+    if (!L) return;
+    edCrop.cx = (W / 2 - L.x) / L.dw;
+    edCrop.cy = (H / 2 - L.y) / L.dh;
+    el.style.backgroundSize = L.dw + "px " + L.dh + "px";
+    el.style.backgroundPosition = L.x + "px " + L.y + "px";
+    const z = Math.round(edCrop.zoom * 100);
+    $("edZoom").value = String(z);
+    $("edZoomV").textContent = z + "%";
+  }
+  function zoomAt(px, py, zoom) {
+    const el = $("edImg");
+    const W = el.clientWidth, H = el.clientHeight;
+    const L = coverLayout(W, H, edCrop);
+    if (!L) return;
+    const u = (px - L.x) / L.dw, v = (py - L.y) / L.dh;
+    zoom = Math.min(4, Math.max(1, zoom));
+    const s = Math.max(W / wpSize.w, H / wpSize.h) * zoom;
+    const dw = wpSize.w * s, dh = wpSize.h * s;
+    edCrop.zoom = zoom;
+    edCrop.cx = (W / 2 - (px - u * dw)) / dw;
+    edCrop.cy = (H / 2 - (py - v * dh)) / dh;
+  }
+  function panBy(dx, dy) {
+    const el = $("edImg");
+    const L = coverLayout(el.clientWidth, el.clientHeight, edCrop);
+    if (!L) return;
+    edCrop.cx -= dx / L.dw;
+    edCrop.cy -= dy / L.dh;
+  }
+  function gesture() {
+    const list = Array.from(touches.values());
+    const n = list.length;
+    if (!n) return null;
+    const cx = list.reduce((a, p) => a + p.x, 0) / n;
+    const cy = list.reduce((a, p) => a + p.y, 0) / n;
+    const dist = n > 1 ? Math.hypot(list[0].x - list[1].x, list[0].y - list[1].y) : 0;
+    return { n, cx, cy, dist };
+  }
+  function setupEditor() {
+    const el = $("edImg");
+    el.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      try { el.setPointerCapture(e.pointerId); } catch (err) { /* без захоплення */ }
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (!touches.has(e.pointerId)) return;
+      const before = gesture();
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const after = gesture();
+      if (before.n >= 2 && after.n >= 2 && before.dist > 0) {
+        zoomAt(before.cx, before.cy, edCrop.zoom * after.dist / before.dist);
+      }
+      panBy(after.cx - before.cx, after.cy - before.cy);
+      layoutEditor();
+    });
+    const drop = (e) => { touches.delete(e.pointerId); };
+    el.addEventListener("pointerup", drop);
+    el.addEventListener("pointercancel", drop);
+    el.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, edCrop.zoom * (e.deltaY < 0 ? 1.1 : 1 / 1.1));
+      layoutEditor();
+    }, { passive: false });
   }
 
   /* ---------- Налаштування і перший запуск ---------- */
   let sheetMode = "";
   let colorMode = "";   // яку тему зараз редагуємо в «Кольорах»
   let openRow = "";     // який колір розгорнуто
+
+  // Повзунки: [змінна, мін, макс, ключ збереження]
+  const SLIDERS = {
+    wpDim: { get: () => wpDim, set: (v) => { wpDim = v; }, max: 90 },
+    wpClear: { get: () => wpClear, set: (v) => { wpClear = v; }, max: 100 },
+    wpBlur: { get: () => wpBlur, set: (v) => { wpBlur = v; }, max: 100 },
+    radius: { get: () => radiusPct, set: (v) => { radiusPct = v; }, max: 100 }
+  };
 
   function renderOptions() {
     $("clsOpts").innerHTML = CLASSES.map((c) =>
@@ -733,16 +1175,33 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     $("wpNote").textContent = text;
     $("wpNote").hidden = !text;
   }
+  function sizePreview() {
+    const pv = $("wpPrev");
+    if (!wpData) {
+      pv.style.width = "";
+      pv.style.height = "";
+      pv.style.backgroundImage = "none";
+      return;
+    }
+    const w = 120;
+    pv.style.width = w + "px";
+    pv.style.height = Math.round(w * window.innerHeight / window.innerWidth) + "px";
+    pv.style.setProperty("--pv", String(w / window.innerWidth));
+    pv.style.backgroundImage = 'url("' + wpData + '")';
+    placeBg(pv, wpCrop);
+  }
   function renderWallpaper() {
-    $("wpPrev").style.backgroundImage = wpData ? 'url("' + wpData + '")' : "none";
+    $("wpPrev").classList.toggle("empty", !wpData);
     $("wpSample").textContent = wpData ? "08:30 – 09:15" : "Фото не вибрано";
     $("wpPick").textContent = wpData ? "Змінити фото" : "Вибрати фото";
+    $("wpEdit").hidden = !wpData;
     $("wpRemove").hidden = !wpData;
     $("wpSliders").hidden = !wpData;
-    $("wpDim").value = String(wpDim);
-    $("wpDimV").textContent = wpDim + "%";
-    $("wpClear").value = String(wpClear);
-    $("wpClearV").textContent = wpClear + "%";
+    for (const id in SLIDERS) {
+      $(id).value = String(SLIDERS[id].get());
+      $(id + "V").textContent = SLIDERS[id].get() + "%";
+    }
+    sizePreview();
   }
   const editMode = () => colorMode || effectiveMode();
   function updatePreview() {
@@ -804,8 +1263,8 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     colorMode = "";
     openRow = "";
     setWpNote("");
-    renderSettings();
     $("sheet").hidden = false;
+    renderSettings();
     $("sheet").scrollTop = 0;
   }
   function closeSheet() {
@@ -820,6 +1279,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     if (b.id === "gear" || b.id === "clsBtn") { openSheet("settings"); return; }
     if (b.id === "sclose") { closeSheet(); return; }
     if (b.id === "wpPick") { setWpNote(""); $("wpFile").click(); return; }
+    if (b.id === "wpEdit") { openEditor(); return; }
     if (b.id === "wpRemove") {
       wpData = "";
       bigStore.set("wallpaper", "");
@@ -828,6 +1288,9 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
       setWpNote("");
       return;
     }
+    if (b.id === "edCancel") { closeEditor(false); return; }
+    if (b.id === "edReset") { edCrop = { cx: 0.5, cy: 0.5, zoom: 1 }; layoutEditor(); return; }
+    if (b.id === "edDone") { closeEditor(true); sizePreview(); return; }
     if (b.id === "creset") {
       delete colors[editMode()];
       saveColors();
@@ -840,6 +1303,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
       store.set("cls", cls);
       if (sheetMode === "first") closeSheet(); else renderOptions();
       lastSig = "";
+      lastExtra = "";
       tick();
       return;
     }
@@ -864,14 +1328,16 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   }
   function onInput(e) {
     const t = e.target;
-    if (t.id === "wpDim") {
-      wpDim = clampInt(t.value, 0, 90, 0);
-      $("wpDimV").textContent = wpDim + "%";
-      applyWallpaperVars();
-    } else if (t.id === "wpClear") {
-      wpClear = clampInt(t.value, 0, 100, 40);
-      $("wpClearV").textContent = wpClear + "%";
-      applyWallpaperVars();
+    const sl = SLIDERS[t.id];
+    if (sl) {
+      const v = clampInt(t.value, 0, sl.max, 0);
+      sl.set(v);
+      $(t.id + "V").textContent = v + "%";
+      applyLookVars();
+    } else if (t.id === "edZoom") {
+      const el = $("edImg");
+      zoomAt(el.clientWidth / 2, el.clientHeight / 2, clampInt(t.value, 100, 400, 100) / 100);
+      layoutEditor();
     } else if (t.id === "cpick") {
       setColor(openRow, t.value, false);
       const chip = document.querySelector('.crow[data-crow="' + openRow + '"] .chip');
@@ -881,8 +1347,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   }
   function onChange(e) {
     const t = e.target;
-    if (t.id === "wpDim") store.set("wpDim", wpDim);
-    else if (t.id === "wpClear") store.set("wpClear", wpClear);
+    if (SLIDERS[t.id]) store.set(t.id, SLIDERS[t.id].get());
     else if (t.id === "cpick") { setColor(openRow, t.value, true); renderColors(); }
     else if (t.id === "wpFile") onPhotoChosen(t);
   }
@@ -896,9 +1361,11 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   window.onAppResume = () => {
     applyColors();
     lastSig = "";
+    lastExtra = "";
     if (document.readyState !== "loading") tick();
   };
   window.onAndroidBack = () => {
+    if (!$("editor").hidden) { closeEditor(false); return true; }
     if (sheetMode === "settings") { closeSheet(); return true; }
     return false;
   };
@@ -908,11 +1375,15 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     document.addEventListener("input", onInput);
     document.addEventListener("change", onChange);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && sheetMode === "settings") closeSheet();
+      if (e.key !== "Escape") return;
+      if (!$("editor").hidden) closeEditor(false);
+      else if (sheetMode === "settings") closeSheet();
     });
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) { lastSig = ""; tick(); }
     });
+    window.addEventListener("resize", layoutWallpaper);
+    setupEditor();
     showWallpaper();
     tick();
     if (!cls) openSheet("first");
@@ -948,6 +1419,31 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     <div class="days" id="days" role="tablist" aria-label="День тижня"></div>
     <div class="tbl lessons" id="lessons"></div>
   </section>
+
+  <section class="extra">
+    <h2 class="title">СТРУКТУРА НАВЧАЛЬНОГО РОКУ</h2>
+    <div class="tbl info year" id="yearTbl"></div>
+    <h2 class="title">ДО КАНІКУЛ</h2>
+    <div id="countdown"></div>
+  </section>
+
+  <section class="extra">
+    <h2 class="title">ГРАФІК ХАРЧУВАННЯ</h2>
+    <div class="box" id="mealMine" hidden></div>
+    <div class="tbl info meal" id="mealTbl"></div>
+  </section>
+
+  <section class="extra">
+    <h2 class="title">ПЛАН ЕВАКУАЦІЇ</h2>
+    <div class="box" id="evacMine" hidden></div>
+    <div class="tbl info evac" id="evacTbl"></div>
+  </section>
+
+  <section class="extra">
+    <h2 class="title">ЧЕРГУВАННЯ УЧНІВ</h2>
+    <div class="box" id="dutyMine" hidden></div>
+    <div class="tbl info duty" id="dutyTbl"></div>
+  </section>
 </div>
 
 <div class="sheet" id="sheet" hidden>
@@ -970,6 +1466,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
       <div class="wp-prev" id="wpPrev"><div class="wp-sample" id="wpSample"></div></div>
       <div class="row2">
         <button type="button" id="wpPick">Вибрати фото</button>
+        <button type="button" id="wpEdit">Налаштувати</button>
         <button type="button" id="wpRemove">Прибрати</button>
       </div>
       <input type="file" id="wpFile" accept="image/*" hidden>
@@ -983,6 +1480,16 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
           <label for="wpClear"><span>Прозорість таблиць</span><span id="wpClearV"></span></label>
           <input type="range" id="wpClear" min="0" max="100" step="5">
         </div>
+        <div class="slider">
+          <label for="wpBlur"><span>Розмиття під таблицями</span><span id="wpBlurV"></span></label>
+          <input type="range" id="wpBlur" min="0" max="100" step="5">
+        </div>
+      </div>
+
+      <div class="group">Вигляд</div>
+      <div class="slider">
+        <label for="radius"><span>Заокруглення кутів</span><span id="radiusV"></span></label>
+        <input type="range" id="radius" min="0" max="100" step="5">
       </div>
 
       <div class="group">Кольори</div>
@@ -998,6 +1505,24 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     </div>
 
     <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<div class="editor" id="editor" hidden>
+  <div class="ed-img" id="edImg"></div>
+  <div class="ed-bar">
+    <div class="panel">
+      <p class="ed-hint">Пересувайте фото пальцем. Двома пальцями — збільшити або зменшити.</p>
+      <div class="slider" style="margin-top:0">
+        <label for="edZoom"><span>Масштаб</span><span id="edZoomV">100%</span></label>
+        <input type="range" id="edZoom" min="100" max="400" step="1">
+      </div>
+      <div class="row2">
+        <button type="button" id="edCancel">Скасувати</button>
+        <button type="button" id="edReset">Скинути</button>
+        <button type="button" id="edDone" class="sel">Готово</button>
+      </div>
+    </div>
   </div>
 </div>
 </body>
