@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="color-scheme" content="light dark">
+<title>Розклад</title>
+<!--
+  Розклад дзвінків і уроків, 2026–2027 н. р.
+  Щоб змінити розклад, дзвінки чи канікули — редагуйте блок «ДАНІ» у скрипті нижче.
+-->
+<style>
+@font-face {
+  font-family: "Rozklad Serif";
+  src: url("fonts/LiberationSerif-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Кольори за замовчуванням (скрипт нижче замінює їх вибраними в налаштуваннях) */
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+  --line: #000000;
+  --now: #00c853;
+  --next: #ffd600;
+  --on-now: #000000;
+  --on-next: #000000;
+  --panel: var(--bg);
+  --panel-real: var(--bg);
+  --dim: 0;
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--inset-top, 0px));
+  --safe-right: max(env(safe-area-inset-right, 0px), var(--inset-right, 0px));
+  --safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--inset-bottom, 0px));
+  --safe-left: max(env(safe-area-inset-left, 0px), var(--inset-left, 0px));
+  --row: clamp(26px, calc((100vh - 330px - var(--safe-top) - var(--safe-bottom)) / var(--rows, 17)), 44px);
+  color-scheme: light;
+  box-sizing: border-box;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --bg: #000000; --fg: #ffffff; --line: #ffffff; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --bg: #000000; --fg: #ffffff; --line: #ffffff; color-scheme: dark; }
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { height: 100%; background: var(--bg); scroll-padding-top: var(--safe-top); }
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Rozklad Serif", "Times New Roman", "Liberation Serif", Tinos, "Noto Serif", serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.25;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+html.has-wp body { background: transparent; }
+button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 0;
+  margin: 0;
+  padding: 0 12px;
+  min-height: 44px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+button:active, button.sel { background: var(--fg); color: var(--bg); }
+button:focus-visible { outline: 3px solid var(--next); outline-offset: -6px; }
+svg { display: block; }
+
+/* Шпалери */
+#wp { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; background: center / cover no-repeat; }
+#wp::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
+html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5px var(--bg), 0 0 9px var(--bg); }
+
+#app { max-width: 620px; margin: 0 auto; padding: 8px 10px 14px; }
+
+/* Шапка */
+.bar { display: flex; gap: 6px; }
+.today {
+  flex: 1; min-width: 0; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 0 10px; border: 2px solid var(--line); background: var(--panel);
+}
+.today .d { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.today .t { font-size: 20px; font-variant-numeric: tabular-nums; }
+.icon { width: 44px; padding: 0; display: flex; align-items: center; justify-content: center; }
+.icon svg { width: 22px; height: 22px; }
+
+/* Заголовки, як на листку */
+.title { margin: 12px 0 6px; font-size: 15px; font-weight: 700; letter-spacing: .12em; text-align: center; }
+
+/* Таблиці з рамками */
+.tbl { border: 2px solid var(--line); background: var(--panel); }
+.tr { display: grid; min-height: var(--row); }
+.tr + .tr { border-top: 1px solid var(--line); }
+.bells .tr { grid-template-columns: 2.3em 1fr 1.3fr; }
+.lessons .tr { grid-template-columns: 2.3em 1fr 6.9em; }
+.td {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; padding: 2px 6px; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.td + .td { border-left: 1px solid var(--line); }
+.td.subj { justify-content: flex-start; padding-left: 10px; white-space: normal; }
+.thead .td { font-size: 13px; }
+.td small { font-size: 12px; }
+.hl-now { background: var(--now); color: var(--on-now); }
+.hl-next { background: var(--next); color: var(--on-next); }
+
+/* Скільки залишилось */
+.status { display: grid; grid-template-columns: 1fr 1fr; margin-top: 6px; border: 2px solid var(--line); background: var(--panel); }
+.status.one { grid-template-columns: 1fr; }
+.cell { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6px 6px 7px; text-align: center; }
+.cell + .cell { border-left: 1px solid var(--line); }
+.lbl { font-size: 14px; }
+.val { margin-top: 2px; font-size: 30px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.status.one .lbl { font-size: 18px; }
+.status.one .val { margin-top: 4px; font-size: 15px; line-height: 1.25; }
+
+.legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; min-height: 20px; margin-top: 6px; font-size: 14px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 13px; height: 13px; flex: none; border: 1px solid var(--line); }
+.sw.now { background: var(--now); }
+.sw.next { background: var(--next); }
+
+/* Нижня половина */
+.bottom { margin-top: 12px; border-top: 5px double var(--line); }
+.days { display: grid; grid-template-columns: repeat(5, 1fr); border: 2px solid var(--line); border-bottom: 0; }
+.days button { position: relative; min-height: 38px; padding: 0; border: 0; }
+.days button + button { border-left: 1px solid var(--line); }
+.days button.is-today::after {
+  content: ""; position: absolute; left: 50%; bottom: 4px;
+  width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: currentColor;
+}
+.empty { padding: 16px 10px; text-align: center; }
+
+/* Налаштування і перший запуск */
+.sheet {
+  --panel: var(--bg);
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 10;
+  overflow-y: auto; background: var(--bg); color: var(--fg);
+  padding: calc(var(--safe-top) + 10px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 20px) calc(var(--safe-left) + 12px);
+}
+.panel { max-width: 520px; margin: 0 auto; }
+.phead { display: flex; gap: 6px; }
+.phead h1 { flex: 1; margin: 0; padding: 10px 8px; border: 2px solid var(--line); font-size: 20px; text-align: center; }
+.group { margin: 22px 0 6px; font-size: 17px; }
+.opts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; background: var(--line); border: 2px solid var(--line); }
+.opts button { min-height: 56px; padding: 0 4px; border: 0; font-size: 19px; }
+.opts.themes { grid-template-columns: repeat(3, 1fr); }
+.opts.themes button { font-size: 16px; }
+.foot { margin: 20px 0 0; font-size: 14px; text-align: center; }
+
+.wp-prev {
+  position: relative; height: 150px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--line); background: var(--bg) center / cover no-repeat;
+}
+.wp-prev::before { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
+.wp-sample { position: relative; padding: 8px 14px; border: 1px solid var(--line); background: var(--panel-real); font-variant-numeric: tabular-nums; }
+.row2 { display: flex; gap: 6px; margin-top: 6px; }
+.row2 button { flex: 1; }
+.note { margin: 8px 0 0; font-size: 14px; }
+.slider { margin-top: 14px; }
+.slider label { display: flex; justify-content: space-between; gap: 10px; }
+.slider input { display: block; width: 100%; margin: 10px 0 0; accent-color: var(--fg); }
+
+.cmode { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 2px solid var(--line); }
+.cmode button { min-height: 44px; border: 0; }
+.cprev { margin-top: 8px; background: var(--bg); color: var(--fg); }
+.cprev .tr { grid-template-columns: 2.3em 1fr 1fr; min-height: 34px; }
+.crows { margin-top: 8px; border: 2px solid var(--line); }
+.crow { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 50px; border: 0; text-align: left; }
+.crow + .crow, .swatches + .crow { border-top: 1px solid var(--line); }
+.chip { flex: none; width: 40px; height: 26px; border: 2px solid var(--line); }
+.swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 10px 12px 12px; border-top: 1px solid var(--line); }
+.swatches button { min-height: 40px; padding: 0; }
+.swatches button.sel { outline: 3px solid var(--fg); outline-offset: 2px; }
+.sw-other { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 0 12px; border: 2px solid var(--line); cursor: pointer; }
+.sw-other input { -webkit-appearance: none; appearance: none; width: 60px; height: 32px; padding: 0; border: 2px solid var(--line); background: none; }
+.sw-other input::-webkit-color-swatch-wrapper { padding: 0; }
+.sw-other input::-webkit-color-swatch { border: 0; }
+.reset { width: 100%; margin-top: 8px; }
+
+@media (max-width: 340px) {
+  body { font-size: 15px; }
+  .val { font-size: 26px; }
+}
+@media (orientation: landscape) and (min-width: 700px) {
+  #app { max-width: 1180px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-items: start; }
+  .bar { grid-column: 1 / -1; }
+  .bottom { margin-top: 0; border-top: 0; }
+}
+</style>
+<script>
+(() => {
+  "use strict";
+
+  /* =====================================================================
+     ДАНІ. Щоб змінити розклад — редагуйте тільки цей блок.
+     ===================================================================== */
+
+  // Розклад дзвінків: [початок, кінець]. Перший рядок — 1-й урок.
+  const BELLS = [
+    ["08:30", "09:15"],
+    ["09:20", "10:05"],
+    ["10:20", "11:05"],
+    ["11:20", "12:05"],
+    ["12:20", "13:05"],
+    ["13:15", "14:00"],
+    ["14:05", "14:50"],
+    ["14:55", "15:40"] // 8-й урок: на листку дзвінків його немає, час приблизний
+  ];
+
+  // Семестри і канікули (рррр-мм-дд, дати включно)
+  const TERMS = [
+    ["2026-09-01", "2026-12-25"],
+    ["2027-01-13", "2027-05-31"]
+  ];
+  const HOLIDAYS = [
+    ["2026-10-26", "2026-11-01", "Осінні канікули"],
+    ["2026-12-28", "2027-01-12", "Зимові канікули"],
+    ["2027-03-22", "2027-03-28", "Весняні канікули"]
+  ];
+  const YEAR = "2026–2027 навчальний рік";
+
+  const CLASSES = ["5", "6-А", "6-Б", "7-А", "7-Б", "8", "9", "10-А", "10-Б", "11"];
+
+  // Уроки. Для кожного класу 5 рядків: ПН, ВТ, СР, ЧТ, ПТ.
+  const SCHEDULE = {
+    "5": [
+      ["Укр.мова", "Математ.", "Укр.літ.", "Фізкульт.", "Англ.мова", "Муз.м."],
+      ["Пізн.пр.", "Англ.мова", "Укр.мова", "Математ.", "Технології", "Обр.м."],
+      ["Укр.мова", "Зар.літ.", "Математ.", "Інформ.", "Історія", "Фізкульт."],
+      ["Англ.мова", "Укр.мова", "Укр.літ.", "Математ.", "Історія", "Зар.літ."],
+      ["Інформ.", "Пізн.пр.", "Англ.мова", "Математ.", "ЗБД", "Технології", "Фізкульт."]
+    ],
+    "6-А": [
+      ["Муз.мист.", "Укр.мова", "Математ.", "Інф(І і ІІ)", "Географія", "Фізкульт.", "Обр.м."],
+      ["Укр.мова", "Математ.", "Інф(І і ІІ)", "Пізн.пр.", "Англ.мова", "Історія", "ЗБД"],
+      ["Укр.мова", "Англ.мова", "Зар.літ.", "Фізкульт.", "Математ.", "Укр.літ.", "Технології"],
+      ["Технології", "Географія", "Англ.мова", "Математ.", "Укр.мова", "Історія", "Пізн.пр."],
+      ["Гр.осв.", "Англ.мова", "Зар.літ.", "Математ.", "Укр.літ.", "Фізкульт."]
+    ],
+    "6-Б": [
+      ["Укр.мова", "Математ.", "Англ.мова", "Фізкульт.", "Інф(І і ІІ)", "Укр.літ.", "Географія"],
+      ["Історія", "Англ.мова", "Укр.мова", "Математ.", "Пізн.пр.", "Гр.осв.", "Обр.мист."],
+      ["Історія", "Математ.", "Англ.мова", "Технології", "Зар.літ.", "Фізкульт.", "ЗБД"],
+      ["Укр.мова", "Інф(І і ІІ)", "Математ.", "Технології", "Англ.мова", "Географія", "Муз.м."],
+      ["Укр.мова", "Зар.літ.", "Математ.", "Укр.літ.", "Фізкульт.", "Пізн.пр."]
+    ],
+    "7-А": [
+      ["Укр.мова", "Фізкульт.", "Біологія", "Алгебра", "Англ.мова", "Геометрія", "Вс.іст."],
+      ["Муз.мист.", "Фізика", "Географія", "Укр.мова", "Укр.літ.", "Обр.мист.", "Гр.осв."],
+      ["Укр.мова", "Алгебра", "Іст.Укр.", "Біологія", "Геометрія", "Англ.мова", "Фізкульт."],
+      ["Хімія", "Зар.літ.", "Інф(І і ІІ)", "Англ.мова", "Біологія", "Фізика", "Технології"],
+      ["Укр.мова", "Алгебра", "Географія", "Укр.літ.", "Фізкульт.", "Англ.мова", "ЗБД"]
+    ],
+    "7-Б": [
+      ["Алгебра", "Укр.мова", "Геометрія", "Англ.мова", "Фізкульт.", "Вс.іст.", "Обр.м."],
+      ["Англ.мова", "Алгебра", "Фізика", "Іст.Укр.", "Укр.літ.", "Біологія", "Географія"],
+      ["Інф(І)", "Англ.мова", "Геометрія", "Укр.мова", "Біологія", "Географія", "Інф(ІІ)", "Фізкульт."],
+      ["Укр.мова", "Муз.мист.", "Зар.літ.", "Фізкульт.", "Хімія", "Біологія", "Фізика"],
+      ["Алгебра", "Укр.мова", "Гр.осв.", "Укр.літ.", "Англ.мова", "ЗБД", "Технології"]
+    ],
+    "8": [
+      ["Алгебра", "Біологія", "Укр.мова", "Укр.літ.", "Геометрія", "Географія", "Обр.мист.", "Фізкульт."],
+      ["Хімія", "Інф(І)", "Іст.Укр.", "Біологія", "Укр.мова", "Англ.мова", "Гр.осв."],
+      ["Алгебра", "Укр.мова", "Фізкульт.", "Геометрія", "Фізика", "Зар.літ.", "ЗБД"],
+      ["Англ.мова", "Технології", "Біологія", "Хімія", "Інф(ІІ)", "Укр.літ.", "Інф(І)"],
+      ["Алгебра", "Укр.мова", "Вс.іст.", "Англ.мова", "Географія", "Фізика", "Муз.мист.", "Фізкульт."]
+    ],
+    "9": [
+      ["Алгебра", "Укр/англ.м.", "Англ./укр.м.", "Іст.Укр.", "Біологія", "Інф/техн.", "Нім.(І)/фізк(ІІ)"],
+      ["Укр.літ.", "Хімія", "Біологія", "Фізика", "Вс.іст.", "Інф/техн.", "Техн/інф", "Фізк(І)"],
+      ["Зар.літ.", "Фізика", "Алгебра", "Англ/укр.м.", "Укр/англ.м.", "Геометрія", "Муз./обр.м."],
+      ["Алгебра", "Біологія", "Укр.літ.", "Англ./укр.м.", "Укр.м/англ.м.", "Хімія", "Фіз(І)/нім(ІІ)", "Фізк(ІІ)"],
+      ["Фізика", "Прав./Ф.гр.", "Н.м/фізк(ІІ)", "Іст.Укр.", "Геометрія", "Географія", "Фіз(І)/нім(ІІ)"]
+    ],
+    "10-А": [
+      ["Хімія", "Англ.мова", "Інф(І)", "Математ.(г)", "Укр.мова", "Біологія"],
+      ["Математ.(а)", "Укр.літ.", "Іст.Укр.", "Фізкульт.", "Фізика", "Гр.осв."],
+      ["Англ.мова", "Технології", "Фізика", "Математ.(г)", "Інф(І)", "Інф(ІІ)"],
+      ["Укр.мова", "Вс.іст.", "Біологія", "Зар.літ.", "Географія", "Гр.осв.", "Фізкульт."],
+      ["Іст.Укр.", "Укр.літ.", "Технології", "Фізкульт.", "Фізика", "Гр.осв.", "Інф(ІІ)"]
+    ],
+    "10-Б": [
+      ["Англ.мова", "Інф(ІІ)", "Хімія", "Укр.мова", "Біологія", "Математ.(г)", "Інф(І)"],
+      ["Англ.мова", "Іст.Укр.", "Укр.літ.", "Фізкульт.", "Математ.(а)", "Фізика", "Гр.осв."],
+      ["Математ.(г)", "Фізкульт.", "Інф(ІІ)", "Фізика", "Технології", "Технології"],
+      ["Вс.іст.", "Укр.мова", "Географія", "Біологія", "Зар.літ.", "Інф(І)", "Гр.осв."],
+      ["Географія", "Фізика", "Укр.літ.", "Фізкульт.", "Іст.Укр."]
+    ],
+    "11": [
+      ["Іст.Укр.", "Біологія", "Іст.Укр.", "Хімія", "Математ.(г)", "Англ./нім.м."],
+      ["Фізика", "Укр.літ.", "Математ.(а)", "Інф/укр.м(ІІ)", "Укр./інф(ІІ)", "Хімія"],
+      ["Фізика", "Вс.іст.", "Біологія", "Зар.літ.", "Фізк(І і ІІ)", "Астрономія"],
+      ["Географія", "Англ.м/нім.м", "Техн/фізк(ІІ)", "Інф/фізк(І)", "Математ.(а)"],
+      ["Укр.літ.", "Фізк(І і ІІ)", "Фізика", "Укр.м/техн", "Техн/укр.м."]
+    ]
+  };
+
+  /* Кольори тем за замовчуванням і набір готових кольорів для налаштувань */
+  const DEFAULT_COLORS = {
+    light: { bg: "#ffffff", text: "#000000", line: "#000000", now: "#00c853", next: "#ffd600" },
+    dark: { bg: "#000000", text: "#ffffff", line: "#ffffff", now: "#00c853", next: "#ffd600" }
+  };
+  const SWATCHES = [
+    "#000000", "#1c1c1e", "#0d1b2a", "#10261a", "#2a0f16",
+    "#ffffff", "#f5f0e1", "#e3f2fd", "#e8f5e9", "#fff3e0",
+    "#9e9e9e", "#00e5ff", "#2979ff", "#d500f9", "#ff4081",
+    "#00c853", "#76ff03", "#ffd600", "#ff9100", "#ff1744"
+  ];
+  const COLOR_ROWS = [
+    ["bg", "Фон"],
+    ["text", "Текст"],
+    ["line", "Рамки"],
+    ["now", "Підсвітка «зараз»"],
+    ["next", "Підсвітка «далі»"]
+  ];
+
+  /* ===================================================================== */
+
+  const DAY_NAMES = ["Неділя", "Понеділок", "Вівторок", "Середа", "Четвер", "П’ятниця", "Субота"];
+  const DAY_SHORT = ["НД", "ПН", "ВТ", "СР", "ЧТ", "ПТ", "СБ"];
+  const HEX = /^#[0-9a-f]{6}$/;
+
+  const $ = (id) => document.getElementById(id);
+  const pad = (n) => (n < 10 ? "0" : "") + n;
+  const dateKey = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const ddmm = (k) => k.slice(8, 10) + "." + k.slice(5, 7);
+  const toSec = (hm) => { const p = hm.split(":"); return +p[0] * 3600 + +p[1] * 60; };
+  const startOf = (i) => toSec(BELLS[i][0]);
+  const endOf = (i) => toSec(BELLS[i][1]);
+  const breakMin = (i) => Math.round((startOf(i + 1) - endOf(i)) / 60);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]);
+  const clampInt = (v, min, max, def) => {
+    const n = parseInt(v, 10);
+    return isNaN(n) ? def : Math.min(max, Math.max(min, n));
+  };
+
+  /* ---------- Сховище: у застосунку — через Android, у браузері — localStorage ---------- */
+  const A = window.Android;
+  const IN_APP = !!(A && typeof A.getPref === "function");
+  const store = {
+    get(k) {
+      if (IN_APP) { try { return A.getPref(k) || null; } catch (e) { /* пробуємо localStorage */ } }
+      try { return window.localStorage.getItem("rozklad:" + k); } catch (e) { return null; }
+    },
+    set(k, v) {
+      if (IN_APP) { try { A.setPref(k, String(v)); return; } catch (e) { /* пробуємо localStorage */ } }
+      try { window.localStorage.setItem("rozklad:" + k, String(v)); } catch (e) { /* сховище недоступне */ }
+    }
+  };
+  // Великі дані (фото шпалер): у застосунку — окремий файл, у браузері — localStorage.
+  const bigStore = {
+    get(k) {
+      if (IN_APP && typeof A.getBig === "function") { try { return A.getBig(k) || ""; } catch (e) { return ""; } }
+      try { return window.localStorage.getItem("rozklad:" + k) || ""; } catch (e) { return ""; }
+    },
+    set(k, v) {
+      if (IN_APP && typeof A.setBig === "function") { try { return !!A.setBig(k, v); } catch (e) { return false; } }
+      try {
+        if (v) window.localStorage.setItem("rozklad:" + k, v);
+        else window.localStorage.removeItem("rozklad:" + k);
+        return true;
+      } catch (e) { return false; }
+    }
+  };
+
+  /* ---------- Для перевірки: index.html?now=2026-09-30T10:42&cls=7-А&theme=dark ---------- */
+  const params = new URLSearchParams(window.location.search);
+  let shift = 0;
+  if (params.get("now")) {
+    const fake = new Date(params.get("now"));
+    if (!isNaN(fake.getTime())) shift = fake.getTime() - Date.now();
+  }
+  const now = () => new Date(Date.now() + shift);
+
+  let cls = params.get("cls") || store.get("cls");
+  if (CLASSES.indexOf(cls) < 0) cls = null;
+  let themePref = params.get("theme") || store.get("theme") || "system";
+  if (["system", "light", "dark"].indexOf(themePref) < 0) themePref = "system";
+  let colors = {};
+  try { colors = JSON.parse(store.get("colors") || "{}") || {}; } catch (e) { colors = {}; }
+  let wpData = bigStore.get("wallpaper");
+  if (wpData.indexOf("data:image/") !== 0) wpData = "";
+  let wpDim = clampInt(store.get("wpDim"), 0, 90, 0);
+  let wpClear = clampInt(store.get("wpClear"), 0, 100, 40);
+
+  /* ---------- Кольори і тема ---------- */
+  function hexRgb(hex) {
+    const n = parseInt(String(hex).slice(1), 16);
+    return isNaN(n) ? [0, 0, 0] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function isLight(hex) {
+    const c = hexRgb(hex);
+    return (c[0] * 299 + c[1] * 587 + c[2] * 114) / 1000 > 150;
+  }
+  const onColor = (hex) => (isLight(hex) ? "#000000" : "#ffffff");
+  function rgba(hex, a) {
+    const c = hexRgb(hex);
+    return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
+  }
+  function palette(mode) {
+    const p = Object.assign({}, DEFAULT_COLORS[mode]);
+    const c = colors[mode] || {};
+    for (const k in p) if (typeof c[k] === "string" && HEX.test(c[k])) p[k] = c[k];
+    return p;
+  }
+
+  const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  function systemIsDark() {
+    if (IN_APP) { try { return !!A.isSystemDark(); } catch (e) { /* далі медіазапит */ } }
+    return !!(mq && mq.matches);
+  }
+  function effectiveMode() {
+    if (themePref === "light" || themePref === "dark") return themePref;
+    if (IN_APP) return systemIsDark() ? "dark" : "light";
+    const viewer = document.documentElement.getAttribute("data-theme");
+    if (viewer === "light" || viewer === "dark") return viewer;
+    return mq && mq.matches ? "dark" : "light";
+  }
+
+  function applyWallpaperVars() {
+    const p = palette(effectiveMode());
+    const panel = wpData ? rgba(p.bg, (100 - wpClear) / 100) : p.bg;
+    const s = document.documentElement.style;
+    s.setProperty("--panel", panel);
+    s.setProperty("--panel-real", panel);
+    s.setProperty("--dim", String(wpData ? wpDim / 100 : 0));
+    document.documentElement.classList.toggle("has-wp", !!wpData);
+  }
+  function applyColors() {
+    const p = palette(effectiveMode());
+    const s = document.documentElement.style;
+    s.setProperty("--bg", p.bg);
+    s.setProperty("--fg", p.text);
+    s.setProperty("--line", p.line);
+    s.setProperty("--now", p.now);
+    s.setProperty("--next", p.next);
+    s.setProperty("--on-now", onColor(p.now));
+    s.setProperty("--on-next", onColor(p.next));
+    s.colorScheme = isLight(p.bg) ? "light" : "dark";
+    applyWallpaperVars();
+    if (IN_APP && typeof A.setBars === "function") { try { A.setBars(p.bg); } catch (e) { /* без смуг */ } }
+  }
+  function saveColors() {
+    store.set("colors", JSON.stringify(colors));
+    // оболонці — щоб при запуску одразу був правильний фон
+    store.set("bg_light", palette("light").bg);
+    store.set("bg_dark", palette("dark").bg);
+  }
+
+  // Відступи під рядок стану і навігацію (передає Android-оболонка)
+  function setInsets(str) {
+    const p = String(str || "").split(",").map(Number);
+    if (p.length !== 4 || p.some((n) => isNaN(n))) return;
+    const s = document.documentElement.style;
+    s.setProperty("--inset-top", p[0] + "px");
+    s.setProperty("--inset-right", p[1] + "px");
+    s.setProperty("--inset-bottom", p[2] + "px");
+    s.setProperty("--inset-left", p[3] + "px");
+  }
+  if (IN_APP && typeof A.getInsets === "function") { try { setInsets(A.getInsets()); } catch (e) { /* без відступів */ } }
+
+  applyColors();
+  if (mq) {
+    const onChange = () => { if (themePref === "system") applyColors(); };
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
+  if (window.MutationObserver) {
+    new MutationObserver(() => { if (themePref === "system") applyColors(); })
+      .observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  }
+
+  /* ---------- Календар навчального року ---------- */
+  function dayInfo(d) {
+    const k = dateKey(d);
+    const wd = d.getDay();
+    for (const h of HOLIDAYS) {
+      if (k >= h[0] && k <= h[1]) return { school: false, text: h[2] + " до " + ddmm(h[1]) };
+    }
+    if (k < TERMS[0][0] || k > TERMS[TERMS.length - 1][1]) return { school: false, text: "Літні канікули" };
+    if (wd === 0 || wd === 6) return { school: false, text: "Сьогодні вихідний" };
+    if (!TERMS.some((t) => k >= t[0] && k <= t[1])) return { school: false, text: "Канікули" };
+    return { school: true };
+  }
+  function nextSchoolDay(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12);
+    for (let i = 0; i < 400; i++) {
+      x.setDate(x.getDate() + 1);
+      if (dayInfo(x).school) return x;
+    }
+    return null;
+  }
+  function autoDay(d) {
+    if (dayInfo(d).school) return d.getDay();
+    const n = nextSchoolDay(d);
+    return n ? n.getDay() : 1;
+  }
+
+  /* ---------- Що зараз: урок, перерва, до уроків чи після ---------- */
+  const lessonsOf = (c, wd) => (c && SCHEDULE[c] && SCHEDULE[c][wd - 1]) || [];
+  function span(list) {
+    let first = -1, last = -1;
+    for (let i = 0; i < list.length && i < BELLS.length; i++) {
+      if (list[i]) { if (first < 0) first = i; last = i; }
+    }
+    return { first, last };
+  }
+  function stateAt(t, list) {
+    const s = span(list);
+    if (s.first < 0) return { type: "none" };
+    if (t < startOf(s.first)) return { type: "before", next: s.first, left: startOf(s.first) - t };
+    for (let i = s.first; i <= s.last; i++) {
+      if (t >= startOf(i) && t < endOf(i)) {
+        const last = i === s.last;
+        return { type: "lesson", cur: i, next: last ? -1 : i + 1, last, left: endOf(i) - t, brk: last ? 0 : breakMin(i) };
+      }
+      if (i < s.last && t >= endOf(i) && t < startOf(i + 1)) {
+        return { type: "break", after: i, next: i + 1, left: startOf(i + 1) - t, brk: breakMin(i) };
+      }
+    }
+    return { type: "after" };
+  }
+  function fmtLeft(sec) {
+    sec = Math.max(0, Math.floor(sec));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    return h ? h + ":" + pad(m) + ":" + pad(s) : pad(m) + ":" + pad(s);
+  }
+  const isNow = (st, i) => !!st && st.type === "lesson" && st.cur === i;
+  const isNext = (st, i) => !!st && (st.type === "lesson" || st.type === "break" || st.type === "before") && st.next === i;
+
+  /* ---------- Головний екран ---------- */
+  function renderBells(st, rows) {
+    let h = '<div class="tr thead"><div class="td">№</div><div class="td">Урок</div><div class="td">Перерва</div></div>';
+    for (let i = 0; i < rows; i++) {
+      const rc = isNow(st, i) ? " hl-now" : isNext(st, i) ? " hl-next" : "";
+      const bc = st.type === "break" && st.after === i ? " hl-now" : "";
+      const brk = i < rows - 1
+        ? BELLS[i][1] + " – " + BELLS[i + 1][0] + "<small>" + breakMin(i) + " хв</small>"
+        : "—";
+      h += '<div class="tr' + rc + '"><div class="td">' + (i + 1) + '</div><div class="td">' +
+        BELLS[i][0] + " – " + BELLS[i][1] + '</div><div class="td' + bc + '">' + brk + "</div></div>";
+    }
+    $("bells").innerHTML = h;
+  }
+
+  let leftEl = null;
+  function renderStatus(st, info, nextDay) {
+    let cells;
+    if (st.type === "lesson") {
+      cells = st.last
+        ? [["До кінця уроків", null], ["Цей урок", "останній"]]
+        : [["До перерви", null], ["Перерва", st.brk + " хв"]];
+    } else if (st.type === "break") {
+      cells = [["До " + (st.next + 1) + "-го уроку", null], ["Перерва", st.brk + " хв"]];
+    } else if (st.type === "before") {
+      cells = [["До початку уроків", null], ["Перший урок", BELLS[st.next][0]]];
+    } else if (st.type === "after") {
+      cells = [["Уроки на сьогодні закінчились", ""]];
+    } else if (st.type === "off") {
+      cells = [[info.text, nextDay
+        ? "Наступний навчальний день: " + DAY_NAMES[nextDay.getDay()].toLowerCase() + ", " +
+          pad(nextDay.getDate()) + "." + pad(nextDay.getMonth() + 1)
+        : "Навчальний рік завершено"]];
+    } else if (st.type === "noclass") {
+      cells = [["Оберіть свій клас", ""]];
+    } else {
+      cells = [["Сьогодні уроків немає", ""]];
+    }
+    const el = $("status");
+    el.className = "status" + (cells.length === 1 ? " one" : "");
+    el.innerHTML = cells.map((c) =>
+      '<div class="cell"><div class="lbl">' + esc(c[0]) + "</div>" +
+      (c[1] === "" ? "" : '<div class="val"' + (c[1] === null ? " data-left" : "") + ">" +
+        (c[1] === null ? "" : esc(c[1])) + "</div>") +
+      "</div>").join("");
+    leftEl = el.querySelector("[data-left]");
+  }
+
+  function renderLegend(st, list) {
+    const name = (i) => list[i] || "вікно";
+    const item = (k, text) => '<span><i class="sw ' + k + '"></i>' + esc(text) + "</span>";
+    let h = "";
+    if (st.type === "lesson") h += item("now", "Зараз: " + name(st.cur));
+    if (st.type === "break") h += item("now", "Зараз: перерва");
+    if (isNext(st, st.next) && st.next >= 0) h += item("next", "Далі: " + name(st.next));
+    $("legend").innerHTML = h;
+  }
+
+  function renderDays(sel, todayWd) {
+    let h = "";
+    for (let i = 1; i <= 5; i++) {
+      const c = ((i === sel ? "sel " : "") + (i === todayWd ? "is-today" : "")).trim();
+      h += '<button type="button" role="tab" aria-selected="' + (i === sel) + '" data-day="' + i + '"' +
+        (c ? ' class="' + c + '"' : "") + ">" + DAY_SHORT[i] + "</button>";
+    }
+    $("days").innerHTML = h;
+  }
+
+  function renderLessons(wd, st) {
+    $("ltitle").textContent = cls ? "РОЗКЛАД УРОКІВ " + cls + " КЛАСУ" : "РОЗКЛАД УРОКІВ";
+    const list = lessonsOf(cls, wd);
+    const s = span(list);
+    if (s.last < 0) {
+      $("lessons").innerHTML = '<div class="empty">' + (cls ? "Уроків немає" : "Клас не вибрано") + "</div>";
+      return;
+    }
+    let h = '<div class="tr thead"><div class="td">№</div><div class="td subj">Предмет</div><div class="td">Час</div></div>';
+    for (let i = 0; i <= s.last; i++) {
+      const rc = isNow(st, i) ? " hl-now" : isNext(st, i) ? " hl-next" : "";
+      h += '<div class="tr' + rc + '"><div class="td">' + (i + 1) + '</div><div class="td subj">' +
+        esc(list[i] || "—") + '</div><div class="td">' + BELLS[i][0] + "–" + BELLS[i][1] + "</div></div>";
+    }
+    $("lessons").innerHTML = h;
+  }
+
+  let viewDay = 0;   // 0 — автоматично: сьогодні або наступний навчальний день
+  let lastDate = "";
+  let lastSig = "";
+
+  function tick() {
+    const d = now();
+    const k = dateKey(d);
+    if (k !== lastDate) { lastDate = k; viewDay = 0; }
+
+    $("dname").textContent = DAY_NAMES[d.getDay()] + ", " + pad(d.getDate()) + "." + pad(d.getMonth() + 1);
+    $("clock").textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+
+    const info = dayInfo(d);
+    const t = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
+    const today = info.school ? lessonsOf(cls, d.getDay()) : [];
+    let st;
+    if (!info.school) st = { type: "off" };
+    else if (!cls) st = { type: "noclass" };
+    else st = stateAt(t, today);
+
+    const nextDay = info.school ? null : nextSchoolDay(d);
+    const auto = info.school ? d.getDay() : (nextDay ? nextDay.getDay() : 1);
+    const wd = viewDay || auto;
+    const shown = lessonsOf(cls, wd);
+    const rows = Math.max(7, span(today).last + 1, span(shown).last + 1);
+
+    const sig = [k, cls, wd, rows, st.type, st.cur, st.next, st.after, st.last].join("|");
+    if (sig !== lastSig) {
+      lastSig = sig;
+      $("clsBtn").textContent = cls || "Клас";
+      // скільки рядків у двох таблицях — щоб вони разом заповнили екран
+      document.documentElement.style.setProperty("--rows", String(rows + 2 + Math.max(1, span(shown).last + 1)));
+      renderBells(st, rows);
+      renderStatus(st, info, nextDay);
+      renderLegend(st, today);
+      renderDays(wd, info.school ? d.getDay() : 0);
+      renderLessons(wd, info.school && wd === d.getDay() ? st : null);
+    }
+    if (leftEl && typeof st.left === "number") leftEl.textContent = fmtLeft(st.left);
+  }
+
+  /* ---------- Шпалери ---------- */
+  function showWallpaper() {
+    const el = $("wp");
+    el.style.backgroundImage = wpData ? 'url("' + wpData + '")' : "none";
+    el.hidden = !wpData;
+    applyWallpaperVars();
+  }
+  // Зменшуємо фото до 1920 px по довшій стороні, щоб швидко відкривалось і мало займало.
+  function shrinkPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("read"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const k = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+            const w = Math.max(1, Math.round(img.naturalWidth * k));
+            const h = Math.max(1, Math.round(img.naturalHeight * k));
+            const c = document.createElement("canvas");
+            c.width = w;
+            c.height = h;
+            c.getContext("2d").drawImage(img, 0, 0, w, h);
+            resolve(c.toDataURL("image/jpeg", 0.82));
+          } catch (e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error("decode"));
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  async function onPhotoChosen(input) {
+    const file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    setWpNote("Обробляю фото…");
+    try {
+      wpData = await shrinkPhoto(file);
+      const saved = bigStore.set("wallpaper", wpData);
+      showWallpaper();
+      renderWallpaper();
+      setWpNote(saved ? "" : "Фото не вдалося зберегти: воно діятиме, доки застосунок відкритий.");
+    } catch (e) {
+      setWpNote("Не вдалося відкрити це фото. Спробуйте інше, у форматі JPG або PNG.");
+    }
+  }
+
+  /* ---------- Налаштування і перший запуск ---------- */
+  let sheetMode = "";
+  let colorMode = "";   // яку тему зараз редагуємо в «Кольорах»
+  let openRow = "";     // який колір розгорнуто
+
+  function renderOptions() {
+    $("clsOpts").innerHTML = CLASSES.map((c) =>
+      '<button type="button" data-cls="' + c + '"' + (c === cls ? ' class="sel"' : "") + ">" + c + "</button>").join("");
+    const themes = [["system", "Як у системі"], ["light", "Біла"], ["dark", "Чорна"]];
+    $("themeOpts").innerHTML = themes.map((x) =>
+      '<button type="button" data-theme-opt="' + x[0] + '"' + (x[0] === themePref ? ' class="sel"' : "") + ">" + x[1] + "</button>").join("");
+  }
+  function setWpNote(text) {
+    $("wpNote").textContent = text;
+    $("wpNote").hidden = !text;
+  }
+  function renderWallpaper() {
+    $("wpPrev").style.backgroundImage = wpData ? 'url("' + wpData + '")' : "none";
+    $("wpSample").textContent = wpData ? "08:30 – 09:15" : "Фото не вибрано";
+    $("wpPick").textContent = wpData ? "Змінити фото" : "Вибрати фото";
+    $("wpRemove").hidden = !wpData;
+    $("wpSliders").hidden = !wpData;
+    $("wpDim").value = String(wpDim);
+    $("wpDimV").textContent = wpDim + "%";
+    $("wpClear").value = String(wpClear);
+    $("wpClearV").textContent = wpClear + "%";
+  }
+  const editMode = () => colorMode || effectiveMode();
+  function updatePreview() {
+    const p = palette(editMode());
+    const s = $("cprev").style;
+    s.setProperty("--bg", p.bg);
+    s.setProperty("--panel", p.bg);
+    s.setProperty("--fg", p.text);
+    s.setProperty("--line", p.line);
+    s.setProperty("--now", p.now);
+    s.setProperty("--next", p.next);
+    s.setProperty("--on-now", onColor(p.now));
+    s.setProperty("--on-next", onColor(p.next));
+  }
+  function renderColors() {
+    const mode = editMode();
+    const p = palette(mode);
+    $("cmode").innerHTML = [["light", "Біла тема"], ["dark", "Чорна тема"]].map((x) =>
+      '<button type="button" data-cmode="' + x[0] + '"' + (x[0] === mode ? ' class="sel"' : "") + ">" + x[1] + "</button>").join("");
+    updatePreview();
+    let h = "";
+    for (const row of COLOR_ROWS) {
+      const key = row[0];
+      h += '<button type="button" class="crow" data-crow="' + key + '" aria-expanded="' + (openRow === key) + '">' +
+        "<span>" + row[1] + '</span><i class="chip" style="background:' + p[key] + '"></i></button>';
+      if (openRow === key) {
+        h += '<div class="swatches">' + SWATCHES.map((c) =>
+          '<button type="button" data-swatch="' + c + '"' + (c === p[key] ? ' class="sel"' : "") +
+          ' style="background:' + c + '" aria-label="' + c + '"></button>').join("") +
+          '<label class="sw-other"><span>Інший колір</span><input type="color" id="cpick" value="' + p[key] + '"></label></div>';
+      }
+    }
+    $("crows").innerHTML = h;
+  }
+  function renderSettings() {
+    renderOptions();
+    renderWallpaper();
+    renderColors();
+  }
+  function setColor(key, hex, save) {
+    hex = String(hex || "").toLowerCase();
+    if (!key || !HEX.test(hex)) return;
+    const mode = editMode();
+    const c = Object.assign({}, colors[mode] || {});
+    c[key] = hex;
+    colors[mode] = c;
+    if (save) saveColors();
+    applyColors();
+  }
+
+  function openSheet(mode) {
+    sheetMode = mode;
+    const first = mode === "first";
+    $("stitle").textContent = first ? "У якому класі ви навчаєтесь?" : "Налаштування";
+    $("sclose").hidden = first;
+    $("gClass").hidden = first;
+    $("more").hidden = first;
+    $("foot").textContent = first ? "Клас можна буде змінити в налаштуваннях." : "Розклад на " + YEAR + ".";
+    colorMode = "";
+    openRow = "";
+    setWpNote("");
+    renderSettings();
+    $("sheet").hidden = false;
+    $("sheet").scrollTop = 0;
+  }
+  function closeSheet() {
+    $("sheet").hidden = true;
+    sheetMode = "";
+  }
+
+  function onClick(e) {
+    const b = e.target.closest ? e.target.closest("button") : null;
+    if (!b) return;
+    const d = b.dataset;
+    if (b.id === "gear" || b.id === "clsBtn") { openSheet("settings"); return; }
+    if (b.id === "sclose") { closeSheet(); return; }
+    if (b.id === "wpPick") { setWpNote(""); $("wpFile").click(); return; }
+    if (b.id === "wpRemove") {
+      wpData = "";
+      bigStore.set("wallpaper", "");
+      showWallpaper();
+      renderWallpaper();
+      setWpNote("");
+      return;
+    }
+    if (b.id === "creset") {
+      delete colors[editMode()];
+      saveColors();
+      applyColors();
+      renderColors();
+      return;
+    }
+    if (d.cls) {
+      cls = d.cls;
+      store.set("cls", cls);
+      if (sheetMode === "first") closeSheet(); else renderOptions();
+      lastSig = "";
+      tick();
+      return;
+    }
+    if (d.themeOpt) {
+      themePref = d.themeOpt;
+      store.set("theme", themePref);
+      colorMode = "";
+      openRow = "";
+      applyColors();
+      renderSettings();
+      return;
+    }
+    if (d.cmode) { colorMode = d.cmode; openRow = ""; renderColors(); return; }
+    if (d.crow) { openRow = openRow === d.crow ? "" : d.crow; renderColors(); return; }
+    if (d.swatch) { setColor(openRow, d.swatch, true); renderColors(); return; }
+    if (d.day) {
+      const day = +d.day;
+      viewDay = day === autoDay(now()) ? 0 : day;
+      lastSig = "";
+      tick();
+    }
+  }
+  function onInput(e) {
+    const t = e.target;
+    if (t.id === "wpDim") {
+      wpDim = clampInt(t.value, 0, 90, 0);
+      $("wpDimV").textContent = wpDim + "%";
+      applyWallpaperVars();
+    } else if (t.id === "wpClear") {
+      wpClear = clampInt(t.value, 0, 100, 40);
+      $("wpClearV").textContent = wpClear + "%";
+      applyWallpaperVars();
+    } else if (t.id === "cpick") {
+      setColor(openRow, t.value, false);
+      const chip = document.querySelector('.crow[data-crow="' + openRow + '"] .chip');
+      if (chip) chip.style.background = t.value;
+      updatePreview();
+    }
+  }
+  function onChange(e) {
+    const t = e.target;
+    if (t.id === "wpDim") store.set("wpDim", wpDim);
+    else if (t.id === "wpClear") store.set("wpClear", wpClear);
+    else if (t.id === "cpick") { setColor(openRow, t.value, true); renderColors(); }
+    else if (t.id === "wpFile") onPhotoChosen(t);
+  }
+
+  // Виклики з Android-оболонки (MainActivity.java)
+  window.onInsets = setInsets;
+  window.onSystemThemeChanged = () => {
+    applyColors();
+    if (sheetMode === "settings") renderSettings();
+  };
+  window.onAppResume = () => {
+    applyColors();
+    lastSig = "";
+    if (document.readyState !== "loading") tick();
+  };
+  window.onAndroidBack = () => {
+    if (sheetMode === "settings") { closeSheet(); return true; }
+    return false;
+  };
+
+  function init() {
+    document.addEventListener("click", onClick);
+    document.addEventListener("input", onInput);
+    document.addEventListener("change", onChange);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && sheetMode === "settings") closeSheet();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) { lastSig = ""; tick(); }
+    });
+    showWallpaper();
+    tick();
+    if (!cls) openSheet("first");
+    (function loop() {
+      setTimeout(() => { tick(); loop(); }, 1000 - (Date.now() % 1000) + 15);
+    })();
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
+</script>
+</head>
+<body>
+<div id="wp" hidden></div>
+<div id="app">
+  <header class="bar">
+    <div class="today"><span class="d" id="dname"></span><span class="t" id="clock"></span></div>
+    <button type="button" id="clsBtn" aria-label="Змінити клас">Клас</button>
+    <button type="button" id="gear" class="icon" aria-label="Налаштування">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <section class="top">
+    <h2 class="title">РОЗКЛАД ДЗВІНКІВ</h2>
+    <div class="tbl bells" id="bells"></div>
+    <div class="status" id="status"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <section class="bottom">
+    <h2 class="title" id="ltitle">РОЗКЛАД УРОКІВ</h2>
+    <div class="days" id="days" role="tablist" aria-label="День тижня"></div>
+    <div class="tbl lessons" id="lessons"></div>
+  </section>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="panel">
+    <div class="phead">
+      <h1 id="stitle">Налаштування</h1>
+      <button type="button" id="sclose" class="icon" aria-label="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="group" id="gClass">Клас</div>
+    <div class="opts" id="clsOpts"></div>
+
+    <div id="more">
+      <div class="group">Тема</div>
+      <div class="opts themes" id="themeOpts"></div>
+
+      <div class="group">Шпалери</div>
+      <div class="wp-prev" id="wpPrev"><div class="wp-sample" id="wpSample"></div></div>
+      <div class="row2">
+        <button type="button" id="wpPick">Вибрати фото</button>
+        <button type="button" id="wpRemove">Прибрати</button>
+      </div>
+      <input type="file" id="wpFile" accept="image/*" hidden>
+      <p class="note" id="wpNote" hidden></p>
+      <div id="wpSliders">
+        <div class="slider">
+          <label for="wpDim"><span>Затемнення фото</span><span id="wpDimV"></span></label>
+          <input type="range" id="wpDim" min="0" max="90" step="5">
+        </div>
+        <div class="slider">
+          <label for="wpClear"><span>Прозорість таблиць</span><span id="wpClearV"></span></label>
+          <input type="range" id="wpClear" min="0" max="100" step="5">
+        </div>
+      </div>
+
+      <div class="group">Кольори</div>
+      <div class="cmode" id="cmode"></div>
+      <div class="tbl cprev" id="cprev" aria-hidden="true">
+        <div class="tr thead"><div class="td">№</div><div class="td">Урок</div><div class="td">Предмет</div></div>
+        <div class="tr hl-now"><div class="td">3</div><div class="td">10:20 – 11:05</div><div class="td">Алгебра</div></div>
+        <div class="tr hl-next"><div class="td">4</div><div class="td">11:20 – 12:05</div><div class="td">Фізика</div></div>
+        <div class="tr"><div class="td">5</div><div class="td">12:20 – 13:05</div><div class="td">Хімія</div></div>
+      </div>
+      <div class="crows" id="crows"></div>
+      <button type="button" class="reset" id="creset">Скинути кольори цієї теми</button>
+    </div>
+
+    <p class="foot" id="foot"></p>
+  </div>
+</div>
+</body>
+</html>

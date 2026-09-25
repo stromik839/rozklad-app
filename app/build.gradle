@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Номер збірки з GitHub Actions — щоб кожна нова версія ставилась поверх попередньої.
+def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as Integer
+
+android {
+    namespace 'ua.school.rozklad'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ua.school.rozklad'
+        minSdk 21
+        targetSdk 35
+        versionCode buildNumber
+        versionName "1.${buildNumber}"
+    }
+
+    // Один ключ для всіх збірок: інакше оновлення не встановиться поверх старої версії.
+    signingConfigs {
+        shared {
+            storeFile file('rozklad.p12')
+            storePassword 'rozklad2026'
+            keyAlias 'rozklad'
+            keyPassword 'rozklad2026'
+            storeType 'pkcs12'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.shared
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.shared
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

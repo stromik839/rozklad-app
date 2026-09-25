@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- рядок поточного уроку -->
+    <path android:fillColor="#00C853" android:pathData="M32,54.3 H76 V63.7 H32 Z" />
+    <!-- шапка таблиці -->
+    <path android:fillColor="#FFFFFF" android:pathData="M32,35 H76 V45 H32 Z" />
+    <!-- рамки -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:pathData="M32,35 H76 V73 H32 Z M32,54.3 H76 M32,63.7 H76 M44,45 V73" />
+</vector>
