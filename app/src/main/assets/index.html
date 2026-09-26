@@ -31,7 +31,6 @@
   --panel-real: var(--bg);
   --bg-85: var(--bg);
   --dim: 0;
-  --blur: 0px;
   --radius: 0px;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--inset-top, 0px));
   --safe-right: max(env(safe-area-inset-right, 0px), var(--inset-right, 0px));
@@ -81,15 +80,15 @@ button:active, button.sel { background: var(--fg); color: var(--bg); }
 button:focus-visible { outline: 3px solid var(--next); outline-offset: -6px; }
 svg { display: block; }
 
-/* Шпалери */
-#wp { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; background: center / cover no-repeat; }
+/* Шпалери. Розмите фото готується заздалегідь одним зображенням,
+   тож під час прокрутки телефон нічого не перераховує. */
+#wp {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1;
+  background: center / cover no-repeat; opacity: 0; transition: opacity .25s ease;
+}
+#wp.ready { opacity: 1; }
 #wp::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
 html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5px var(--bg), 0 0 9px var(--bg); }
-html.has-blur .today, html.has-blur .bar button, html.has-blur .tbl, html.has-blur .status,
-html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
-  -webkit-backdrop-filter: blur(var(--blur));
-  backdrop-filter: blur(var(--blur));
-}
 
 #app { max-width: 620px; margin: 0 auto; padding: 8px 10px 16px; }
 
@@ -217,8 +216,6 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
 .wp-sample {
   position: relative; padding: 5px 8px; font-size: 11px; font-variant-numeric: tabular-nums;
   border: 1px solid var(--line); border-radius: calc(var(--radius) * var(--pv, 0.3)); background: var(--panel-real);
-  -webkit-backdrop-filter: blur(calc(var(--blur) * var(--pv, 0.3)));
-  backdrop-filter: blur(calc(var(--blur) * var(--pv, 0.3)));
 }
 .wp-prev.empty .wp-sample { font-size: 15px; padding: 6px 12px; }
 .row2 { display: flex; gap: 6px; margin-top: 8px; }
@@ -247,14 +244,18 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
 
 /* Редактор шпалер: пересунути і збільшити фото */
 .editor { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; background: #000; }
-.ed-img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: center / cover no-repeat; touch-action: none; cursor: grab; }
+.ed-img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; touch-action: none; cursor: grab; }
+/* Фото в редакторі рухається трансформацією — це робить відеочип, без перемальовування */
+.ed-img img {
+  position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0; will-change: transform;
+  pointer-events: none; -webkit-user-drag: none;
+}
 .ed-img::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); pointer-events: none; }
 .ed-bar {
   --panel: var(--bg);
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 10px calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 12px) calc(var(--safe-left) + 12px);
   background: var(--bg-85); border-top: 2px solid var(--line);
-  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
 .ed-bar .panel { max-width: 520px; }
 .ed-hint { margin: 0 0 8px; font-size: 14px; text-align: center; }
@@ -442,6 +443,8 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
   const HEX = /^#[0-9a-f]{6}$/;
 
   const $ = (id) => document.getElementById(id);
+  // Пишемо в сторінку лише те, що справді змінилось: менше зайвої роботи щосекунди.
+  const setText = (el, text) => { if (el && el.textContent !== text) el.textContent = text; };
   const pad = (n) => (n < 10 ? "0" : "") + n;
   const dateKey = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
   const keyDate = (k) => new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
@@ -533,9 +536,13 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     const n = parseInt(String(hex).slice(1), 16);
     return isNaN(n) ? [0, 0, 0] : [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
+  // Відносна яскравість (WCAG): текст на підсвітці — той, що контрастніший, чорний чи білий.
   function isLight(hex) {
-    const c = hexRgb(hex);
-    return (c[0] * 299 + c[1] * 587 + c[2] * 114) / 1000 > 150;
+    const c = hexRgb(hex).map((v) => {
+      v /= 255;
+      return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 0.179;
   }
   const onColor = (hex) => (isLight(hex) ? "#000000" : "#ffffff");
   function rgba(hex, a) {
@@ -570,11 +577,9 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     s.setProperty("--panel-real", panel);
     s.setProperty("--bg-85", rgba(p.bg, 0.85));
     s.setProperty("--dim", String(wpData ? wpDim / 100 : 0));
-    s.setProperty("--blur", (wpData ? wpBlur / 5 : 0) + "px");
     s.setProperty("--radius", (radiusPct * 0.24).toFixed(1) + "px");
     const c = document.documentElement.classList;
     c.toggle("has-wp", !!wpData);
-    c.toggle("has-blur", !!wpData && wpBlur > 0);
   }
   function applyColors() {
     const p = palette(effectiveMode());
@@ -640,9 +645,15 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     }
     return null;
   }
+  let nsdKey = "", nsdVal = null;
+  function nextSchoolDayCached(d) {
+    const k = dateKey(d);
+    if (k !== nsdKey) { nsdKey = k; nsdVal = nextSchoolDay(d); }
+    return nsdVal;
+  }
   function autoDay(d) {
     if (dayInfo(d).school) return d.getDay();
-    const n = nextSchoolDay(d);
+    const n = nextSchoolDayCached(d);
     return n ? n.getDay() : 1;
   }
 
@@ -830,7 +841,14 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
       h += "</div>";
     }
     $("countdown").innerHTML = h;
-    if (first.target) cdMain = { el: $("countdown").querySelector(".cd-main"), target: first.target };
+    if (first.target) {
+      const box0 = $("countdown").querySelector(".cd-main");
+      cdMain = { target: first.target, num: {}, unit: {} };
+      for (const key of ["d", "h", "m", "s"]) {
+        cdMain.num[key] = box0.querySelector('[data-p="' + key + '"]');
+        cdMain.unit[key] = box0.querySelector('[data-u="' + key + '"]');
+      }
+    }
     cdRows = ev.slice(1).map((e, i) => ({ el: $("countdown").querySelector('[data-cdi="' + i + '"]'), target: e.target }));
   }
   function updateCountdown(ms) {
@@ -846,15 +864,15 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
         s: plural(p.s, "секунда", "секунди", "секунд")
       };
       for (const key of ["d", "h", "m", "s"]) {
-        cdMain.el.querySelector('[data-p="' + key + '"]').textContent = key === "d" ? String(p[key]) : pad(p[key]);
-        cdMain.el.querySelector('[data-u="' + key + '"]').textContent = units[key];
+        setText(cdMain.num[key], key === "d" ? String(p[key]) : pad(p[key]));
+        setText(cdMain.unit[key], units[key]);
       }
     }
     for (const r of cdRows) {
       const left = r.target - ms;
       if (left <= 0) expired = true;
       const p = splitDur(left);
-      r.el.textContent = p.d + " дн. " + pad(p.h) + ":" + pad(p.m) + ":" + pad(p.s);
+      setText(r.el, p.d + " дн. " + pad(p.h) + ":" + pad(p.m) + ":" + pad(p.s));
     }
     return expired;
   }
@@ -885,8 +903,8 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     let text = "";
     if (info.school && t < m) text = fmtIn(m - t);
     else if (info.school && t < m + 20 * 60) text = "зараз";
-    el.textContent = text;
-    el.hidden = !text;
+    setText(el, text);
+    if (el.hidden !== !text) el.hidden = !text;
   }
   function renderEvacuation() {
     let h = '<div class="tr thead"><div class="td">Клас</div><div class="td left">Вихід і укриття</div></div>';
@@ -934,8 +952,8 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     const k = dateKey(d);
     if (k !== lastDate) { lastDate = k; viewDay = 0; }
 
-    $("dname").textContent = DAY_NAMES[d.getDay()] + ", " + pad(d.getDate()) + "." + pad(d.getMonth() + 1);
-    $("clock").textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    setText($("dname"), DAY_NAMES[d.getDay()] + ", " + pad(d.getDate()) + "." + pad(d.getMonth() + 1));
+    setText($("clock"), pad(d.getHours()) + ":" + pad(d.getMinutes()));
 
     const info = dayInfo(d);
     const t = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
@@ -945,7 +963,7 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     else if (!cls) st = { type: "noclass" };
     else st = stateAt(t, today);
 
-    const nextDay = info.school ? null : nextSchoolDay(d);
+    const nextDay = info.school ? null : nextSchoolDayCached(d);
     const auto = info.school ? d.getDay() : (nextDay ? nextDay.getDay() : 1);
     const wd = viewDay || auto;
     const shown = lessonsOf(cls, wd);
@@ -964,7 +982,7 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
       renderDays(wd, todayWd);
       renderLessons(wd, info.school && wd === d.getDay() ? st : null);
     }
-    const extraSig = [k, cls, yearEvents(ms).map((e) => e.state).join()].join("|");
+    const extraSig = k + "|" + cls;
     if (extraSig !== lastExtra) {
       lastExtra = extraSig;
       renderYear(k);
@@ -973,12 +991,17 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
       renderEvacuation();
       renderDuty(todayWd);
     }
-    if (leftEl && typeof st.left === "number") leftEl.textContent = fmtLeft(st.left);
+    if (leftEl && typeof st.left === "number") setText(leftEl, fmtLeft(st.left));
     if (updateCountdown(ms)) lastExtra = "";
     updateMealHint(d, info);
   }
 
-  /* ---------- Шпалери: показ, обрізка і масштаб ---------- */
+  /* ---------- Шпалери: показ, обрізка, масштаб і розмиття ---------- */
+  let wpImg = null;       // розкодоване фото
+  let wpVersion = 0;      // змінюється разом із самим фото
+  let blurUrl = "";       // заздалегідь розмите фото під поточний розмір екрана
+  let blurKey = "";
+
   // Де опиниться фото в рамці W×H: масштаб відносно «заповнити» і точка фото в центрі рамки.
   function coverLayout(W, H, crop) {
     if (!wpSize || !W || !H) return null;
@@ -988,29 +1011,109 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     const y = Math.min(0, Math.max(H - dh, H / 2 - crop.cy * dh));
     return { dw, dh, x, y };
   }
-  function placeBg(el, crop) {
+  // Міняємо фон елемента лише тоді, коли щось справді змінилось.
+  function setBg(el, url, size, pos) {
+    if (el._bgUrl !== url) {
+      el._bgUrl = url;
+      el.style.backgroundImage = url ? 'url("' + url + '")' : "none";
+    }
+    if (el._bgSize !== size) { el._bgSize = size; el.style.backgroundSize = size; }
+    if (el._bgPos !== pos) { el._bgPos = pos; el.style.backgroundPosition = pos; }
+  }
+  function sharpBg(el, crop) {
     const L = coverLayout(el.clientWidth, el.clientHeight, crop);
-    el.style.backgroundSize = L ? L.dw + "px " + L.dh + "px" : "cover";
-    el.style.backgroundPosition = L ? L.x + "px " + L.y + "px" : "center";
+    setBg(el, wpData, L ? L.dw + "px " + L.dh + "px" : "cover", L ? L.x + "px " + L.y + "px" : "center");
+  }
+  // Розмиття малюється один раз у зменшеному вигляді, а екран його лише розтягує.
+  function makeBlurred(draft) {
+    const W = window.innerWidth, H = window.innerHeight;
+    const L = coverLayout(W, H, wpCrop);
+    if (!L || !wpImg) return "";
+    const px = wpBlur / 5;                                  // 1–20 px
+    let k = Math.min(1, Math.max(0.2, 3 / px));             // наскільки зменшити
+    if (draft) k /= 2;
+    const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
+    const r = px * k;
+    const m = Math.ceil(r * 3) + 2;                         // запас, щоб краї не темніли
+    const c1 = document.createElement("canvas");
+    c1.width = cw + 2 * m;
+    c1.height = ch + 2 * m;
+    const g1 = c1.getContext("2d");
+    const s0 = Math.max(c1.width / wpSize.w, c1.height / wpSize.h);
+    g1.drawImage(wpImg, (c1.width - wpSize.w * s0) / 2, (c1.height - wpSize.h * s0) / 2, wpSize.w * s0, wpSize.h * s0);
+    g1.drawImage(wpImg, m + L.x * k, m + L.y * k, L.dw * k, L.dh * k);
+    const c2 = document.createElement("canvas");
+    c2.width = cw;
+    c2.height = ch;
+    const g2 = c2.getContext("2d");
+    if (typeof g2.filter === "string") {
+      g2.filter = "blur(" + r.toFixed(2) + "px)";
+      g2.drawImage(c1, -m, -m);
+    } else {
+      // старі WebView без фільтрів: зменшити й розтягнути — теж розмиває
+      const t = document.createElement("canvas");
+      t.width = Math.max(1, Math.round(cw / (r + 1)));
+      t.height = Math.max(1, Math.round(ch / (r + 1)));
+      t.getContext("2d").drawImage(c1, m, m, cw, ch, 0, 0, t.width, t.height);
+      g2.drawImage(t, 0, 0, cw, ch);
+    }
+    try { return c2.toDataURL("image/jpeg", 0.85); } catch (e) { return ""; }
+  }
+  function paintWallpaper(draft) {
+    const el = $("wp");
+    if (!wpData || !wpSize) return;
+    if (wpBlur > 0) {
+      const key = [wpVersion, window.innerWidth, window.innerHeight, wpBlur,
+        wpCrop.cx.toFixed(4), wpCrop.cy.toFixed(4), wpCrop.zoom.toFixed(3), draft ? 1 : 0].join("|");
+      if (key !== blurKey) {
+        blurUrl = makeBlurred(draft);
+        blurKey = key;
+      }
+      if (blurUrl) { setBg(el, blurUrl, "100% 100%", "0 0"); return; }
+    }
+    sharpBg(el, wpCrop);
+  }
+  // Під час руху повзунка — не частіше одного разу за кадр і в спрощеній якості.
+  let wpFrame = 0, wpDraft = false;
+  function scheduleWallpaper(draft) {
+    wpDraft = draft;
+    if (wpFrame) return;
+    wpFrame = requestAnimationFrame(() => {
+      wpFrame = 0;
+      paintWallpaper(wpDraft);
+      if (sheetMode === "settings") sizePreview();
+    });
   }
   function layoutWallpaper() {
-    if (wpData) placeBg($("wp"), wpCrop);
+    paintWallpaper(false);
     if (sheetMode === "settings") sizePreview();
     if (!$("editor").hidden) layoutEditor();
   }
   function showWallpaper() {
     const el = $("wp");
-    el.style.backgroundImage = wpData ? 'url("' + wpData + '")' : "none";
-    el.hidden = !wpData;
-    applyLookVars();
+    wpVersion++;
+    wpImg = null;
     wpSize = null;
+    blurUrl = "";
+    blurKey = "";
+    applyLookVars();
+    el.classList.remove("ready");
+    if (!wpData) {
+      el.hidden = true;
+      setBg(el, "", "", "");
+      return Promise.resolve();
+    }
+    el.hidden = false;
+    const src = wpData;
     return new Promise((resolve) => {
-      if (!wpData) { resolve(); return; }
-      const src = wpData;
       const img = new Image();
       img.onload = () => {
-        if (src === wpData) wpSize = { w: img.naturalWidth, h: img.naturalHeight };
-        layoutWallpaper();
+        if (src === wpData) {
+          wpImg = img;
+          wpSize = { w: img.naturalWidth, h: img.naturalHeight };
+          paintWallpaper(false);
+          el.classList.add("ready");   // плавна поява, без стрибка кадрування
+        }
         resolve();
       };
       img.onerror = () => resolve();
@@ -1068,7 +1171,10 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
   function openEditor() {
     if (!wpData || !wpSize) return;
     edCrop = Object.assign({}, wpCrop);
-    $("edImg").style.backgroundImage = 'url("' + wpData + '")';
+    const pic = $("edPic");
+    if (pic._src !== wpData) { pic._src = wpData; pic.src = wpData; }
+    pic.style.width = wpSize.w + "px";
+    pic.style.height = wpSize.h + "px";
     $("editor").hidden = false;
     layoutEditor();
   }
@@ -1076,7 +1182,8 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     if (save && edCrop) {
       wpCrop = edCrop;
       store.set("wpCrop", JSON.stringify(wpCrop));
-      layoutWallpaper();
+      paintWallpaper(false);
+      if (sheetMode === "settings") sizePreview();
     }
     touches.clear();
     $("editor").hidden = true;
@@ -1088,11 +1195,11 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     if (!L) return;
     edCrop.cx = (W / 2 - L.x) / L.dw;
     edCrop.cy = (H / 2 - L.y) / L.dh;
-    el.style.backgroundSize = L.dw + "px " + L.dh + "px";
-    el.style.backgroundPosition = L.x + "px " + L.y + "px";
+    $("edPic").style.transform = "translate(" + L.x.toFixed(1) + "px," + L.y.toFixed(1) + "px) scale(" +
+      (L.dw / wpSize.w).toFixed(5) + ")";
     const z = Math.round(edCrop.zoom * 100);
-    $("edZoom").value = String(z);
-    $("edZoomV").textContent = z + "%";
+    if ($("edZoom").value !== String(z)) $("edZoom").value = String(z);
+    setText($("edZoomV"), z + "%");
   }
   function zoomAt(px, py, zoom) {
     const el = $("edImg");
@@ -1180,15 +1287,15 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     if (!wpData) {
       pv.style.width = "";
       pv.style.height = "";
-      pv.style.backgroundImage = "none";
+      setBg(pv, "", "", "");
       return;
     }
     const w = 120;
     pv.style.width = w + "px";
     pv.style.height = Math.round(w * window.innerHeight / window.innerWidth) + "px";
     pv.style.setProperty("--pv", String(w / window.innerWidth));
-    pv.style.backgroundImage = 'url("' + wpData + '")';
-    placeBg(pv, wpCrop);
+    if (wpBlur > 0 && blurUrl) setBg(pv, blurUrl, "100% 100%", "0 0");
+    else sharpBg(pv, wpCrop);
   }
   function renderWallpaper() {
     $("wpPrev").classList.toggle("empty", !wpData);
@@ -1334,6 +1441,7 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
       sl.set(v);
       $(t.id + "V").textContent = v + "%";
       applyLookVars();
+      if (t.id === "wpBlur") scheduleWallpaper(true);
     } else if (t.id === "edZoom") {
       const el = $("edImg");
       zoomAt(el.clientWidth / 2, el.clientHeight / 2, clampInt(t.value, 100, 400, 100) / 100);
@@ -1347,7 +1455,10 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
   }
   function onChange(e) {
     const t = e.target;
-    if (SLIDERS[t.id]) store.set(t.id, SLIDERS[t.id].get());
+    if (SLIDERS[t.id]) {
+      store.set(t.id, SLIDERS[t.id].get());
+      if (t.id === "wpBlur") scheduleWallpaper(false);
+    }
     else if (t.id === "cpick") { setColor(openRow, t.value, true); renderColors(); }
     else if (t.id === "wpFile") onPhotoChosen(t);
   }
@@ -1382,7 +1493,11 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) { lastSig = ""; tick(); }
     });
-    window.addEventListener("resize", layoutWallpaper);
+    let resizeTimer = 0;
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(layoutWallpaper, 120);
+    });
     setupEditor();
     showWallpaper();
     tick();
@@ -1481,7 +1596,7 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
           <input type="range" id="wpClear" min="0" max="100" step="5">
         </div>
         <div class="slider">
-          <label for="wpBlur"><span>Розмиття під таблицями</span><span id="wpBlurV"></span></label>
+          <label for="wpBlur"><span>Розмиття фону</span><span id="wpBlurV"></span></label>
           <input type="range" id="wpBlur" min="0" max="100" step="5">
         </div>
       </div>
@@ -1509,7 +1624,7 @@ html.has-blur .days, html.has-blur .box, html.has-blur .cd-main {
 </div>
 
 <div class="editor" id="editor" hidden>
-  <div class="ed-img" id="edImg"></div>
+  <div class="ed-img" id="edImg"><img id="edPic" alt=""></div>
   <div class="ed-bar">
     <div class="panel">
       <p class="ed-hint">Пересувайте фото пальцем. Двома пальцями — збільшити або зменшити.</p>
