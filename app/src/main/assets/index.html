@@ -31,6 +31,7 @@
   --panel-real: var(--bg);
   --bg-85: var(--bg);
   --dim: 0;
+  --dim-color: rgba(0, 0, 0, 0);
   --radius: 0px;
   --safe-top: max(env(safe-area-inset-top, 0px), var(--inset-top, 0px));
   --safe-right: max(env(safe-area-inset-right, 0px), var(--inset-right, 0px));
@@ -89,6 +90,34 @@ svg { display: block; }
 #wp.ready { opacity: 1; }
 #wp::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
 html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5px var(--bg), 0 0 9px var(--bg); }
+/* «Скло»: під таблицями й кнопками лежить друге, заздалегідь розмите фото.
+   Воно закріплене на екрані (як і чітке) і лише обрізається рамкою таблиці,
+   тож під час прокрутки телефон нічого не розмиває і не перемальовує. */
+html.has-glass .today, html.has-glass .bar button, html.has-glass .tbl, html.has-glass .status,
+html.has-glass .days, html.has-glass .box, html.has-glass .cd-main {
+  position: relative; isolation: isolate; background: transparent;
+}
+html.has-glass .sheet .tbl { background: var(--panel); isolation: auto; }
+.glass { display: none; }
+html.has-glass .glass {
+  display: block; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1;
+  pointer-events: none; clip-path: inset(0 round max(0px, calc(var(--radius) - 2px)));
+}
+.glass img { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; }
+.glass::after {
+  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+  background: linear-gradient(var(--dim-color), var(--dim-color)), var(--panel);
+}
+html.has-glass .bar button:active .glass { display: none; }
+/* Сучасний WebView: розмите фото рухається разом із прокруткою в протилежний бік
+   силами відеочипа (scroll-driven animation), а кути обрізаються без зайвих проходів. */
+@keyframes glass-follow { from { transform: translateY(0); } to { transform: translateY(var(--smax, 0px)); } }
+html.glass-st.has-glass .glass { clip-path: none; overflow: hidden; border-radius: max(0px, calc(var(--radius) - 2px)); }
+html.glass-st .glass img {
+  position: absolute; will-change: transform;
+  animation: glass-follow 1ms linear both;
+  animation-timeline: scroll(root block);
+}
 
 #app { max-width: 620px; margin: 0 auto; padding: 8px 10px 16px; }
 
@@ -556,6 +585,8 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     return p;
   }
 
+  const GLASS_ST = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()"));
+  if (GLASS_ST) document.documentElement.classList.add("glass-st");
   const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   function systemIsDark() {
     if (IN_APP) { try { return !!A.isSystemDark(); } catch (e) { /* далі медіазапит */ } }
@@ -577,6 +608,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     s.setProperty("--panel-real", panel);
     s.setProperty("--bg-85", rgba(p.bg, 0.85));
     s.setProperty("--dim", String(wpData ? wpDim / 100 : 0));
+    s.setProperty("--dim-color", "rgba(0,0,0," + (wpData ? wpDim / 100 : 0) + ")");
     s.setProperty("--radius", (radiusPct * 0.24).toFixed(1) + "px");
     const c = document.documentElement.classList;
     c.toggle("has-wp", !!wpData);
@@ -981,6 +1013,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
       renderLegend(st, today);
       renderDays(wd, todayWd);
       renderLessons(wd, info.school && wd === d.getDay() ? st : null);
+      refreshGlass();
     }
     const extraSig = k + "|" + cls;
     if (extraSig !== lastExtra) {
@@ -990,6 +1023,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
       renderMeals();
       renderEvacuation();
       renderDuty(todayWd);
+      refreshGlass();
     }
     if (leftEl && typeof st.left === "number") setText(leftEl, fmtLeft(st.left));
     if (updateCountdown(ms)) lastExtra = "";
@@ -1059,9 +1093,51 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     }
     try { return c2.toDataURL("image/jpeg", 0.85); } catch (e) { return ""; }
   }
+  // Під кожну таблицю й кнопку головного екрана кладемо шар «скла» з розмитим фото.
+  const PANELS = ".today, .bar button, .tbl, .status, .days, .box, .cd-main";
+  function refreshGlass() {
+    if (!blurUrl || !document.documentElement.classList.contains("has-glass")) return;
+    for (const p of $("app").querySelectorAll(PANELS)) {
+      let g = p.firstElementChild;
+      if (!g || !g.classList.contains("glass")) {
+        g = document.createElement("span");
+        g.className = "glass";
+        g.setAttribute("aria-hidden", "true");
+        const im = document.createElement("img");
+        im.alt = "";
+        g.appendChild(im);
+        p.insertBefore(g, p.firstChild);
+      }
+      const im = g.firstElementChild;
+      if (im._src !== blurUrl) { im._src = blurUrl; im.src = blurUrl; }
+    }
+    placeGlass();
+  }
+  // Зсув кожного «скла» так, щоб розмите фото лягало точно під чітке на екрані.
+  function placeGlass() {
+    if (!GLASS_ST || !document.documentElement.classList.contains("has-glass")) return;
+    const sx = window.scrollX, sy = window.scrollY;
+    const smax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    document.documentElement.style.setProperty("--smax", smax + "px");
+    for (const g of $("app").querySelectorAll(".glass")) {
+      const r = g.getBoundingClientRect();
+      const im = g.firstElementChild;
+      const x = Math.round(-(r.left + sx)), y = Math.round(-(r.top + sy));
+      if (im._x !== x) { im._x = x; im.style.left = x + "px"; }
+      if (im._y !== y) { im._y = y; im.style.top = y + "px"; }
+    }
+  }
+  let glassFrame = 0;
+  function schedulePlaceGlass() {
+    if (glassFrame) return;
+    glassFrame = requestAnimationFrame(() => { glassFrame = 0; placeGlass(); });
+  }
+  // Два фото: чітке — на весь фон, розмите — лише під таблицями й кнопками.
   function paintWallpaper(draft) {
     const el = $("wp");
-    if (!wpData || !wpSize) return;
+    const root = document.documentElement;
+    if (!wpData || !wpSize) { root.classList.remove("has-glass"); return; }
+    sharpBg(el, wpCrop);
     if (wpBlur > 0) {
       const key = [wpVersion, window.innerWidth, window.innerHeight, wpBlur,
         wpCrop.cx.toFixed(4), wpCrop.cy.toFixed(4), wpCrop.zoom.toFixed(3), draft ? 1 : 0].join("|");
@@ -1069,9 +1145,11 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
         blurUrl = makeBlurred(draft);
         blurKey = key;
       }
-      if (blurUrl) { setBg(el, blurUrl, "100% 100%", "0 0"); return; }
+      root.classList.toggle("has-glass", !!blurUrl);
+      refreshGlass();
+    } else {
+      root.classList.remove("has-glass");
     }
-    sharpBg(el, wpCrop);
   }
   // Під час руху повзунка — не частіше одного разу за кадр і в спрощеній якості.
   let wpFrame = 0, wpDraft = false;
@@ -1096,6 +1174,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
     wpSize = null;
     blurUrl = "";
     blurKey = "";
+    document.documentElement.classList.remove("has-glass");
     applyLookVars();
     el.classList.remove("ready");
     if (!wpData) {
@@ -1284,18 +1363,34 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
   }
   function sizePreview() {
     const pv = $("wpPrev");
+    const sm = $("wpSample");
     if (!wpData) {
       pv.style.width = "";
       pv.style.height = "";
       setBg(pv, "", "", "");
+      sampleGlass(sm, false);
       return;
     }
     const w = 120;
     pv.style.width = w + "px";
     pv.style.height = Math.round(w * window.innerHeight / window.innerWidth) + "px";
     pv.style.setProperty("--pv", String(w / window.innerWidth));
-    if (wpBlur > 0 && blurUrl) setBg(pv, blurUrl, "100% 100%", "0 0");
-    else sharpBg(pv, wpCrop);
+    sharpBg(pv, wpCrop);
+    sampleGlass(sm, wpBlur > 0 && !!blurUrl, pv);
+  }
+  // Зразок у прев’ю: те саме «скло», підігнане під маленьку рамку.
+  function sampleGlass(sm, on, pv) {
+    const st = sm.style;
+    if (!on) {
+      st.backgroundColor = st.backgroundImage = st.backgroundSize = st.backgroundPosition = st.backgroundRepeat = "";
+      return;
+    }
+    st.backgroundColor = "transparent";
+    st.backgroundImage = "linear-gradient(var(--panel-real), var(--panel-real)), " +
+      "linear-gradient(var(--dim-color), var(--dim-color)), url(\"" + blurUrl + "\")";
+    st.backgroundSize = "auto, auto, " + pv.clientWidth + "px " + pv.clientHeight + "px";
+    st.backgroundPosition = "0 0, 0 0, " + (-sm.offsetLeft - 1) + "px " + (-sm.offsetTop - 1) + "px";
+    st.backgroundRepeat = "no-repeat";
   }
   function renderWallpaper() {
     $("wpPrev").classList.toggle("empty", !wpData);
@@ -1499,6 +1594,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
       resizeTimer = setTimeout(layoutWallpaper, 120);
     });
     setupEditor();
+    if (window.ResizeObserver) new ResizeObserver(schedulePlaceGlass).observe($("app"));
     showWallpaper();
     tick();
     if (!cls) openSheet("first");
@@ -1596,7 +1692,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
           <input type="range" id="wpClear" min="0" max="100" step="5">
         </div>
         <div class="slider">
-          <label for="wpBlur"><span>Розмиття фону</span><span id="wpBlurV"></span></label>
+          <label for="wpBlur"><span>Розмиття під таблицями</span><span id="wpBlurV"></span></label>
           <input type="range" id="wpBlur" min="0" max="100" step="5">
         </div>
       </div>
