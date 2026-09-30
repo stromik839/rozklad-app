@@ -90,36 +90,15 @@ svg { display: block; }
 #wp.ready { opacity: 1; }
 #wp::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
 html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5px var(--bg), 0 0 9px var(--bg); }
-/* «Скло»: під таблицями й кнопками лежить друге, заздалегідь розмите фото.
-   Воно закріплене на екрані (як і чітке) і лише обрізається рамкою таблиці,
-   тож під час прокрутки телефон нічого не розмиває і не перемальовує. */
-html.has-glass .today, html.has-glass .bar button, html.has-glass .tbl, html.has-glass .status,
-html.has-glass .days, html.has-glass .box, html.has-glass .cd-main {
-  position: relative; isolation: isolate; background: transparent;
-}
-html.has-glass .sheet .tbl { background: var(--panel); isolation: auto; }
-.glass { display: none; }
-html.has-glass .glass {
-  display: block; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1;
-  pointer-events: none; clip-path: inset(0 round max(0px, calc(var(--radius) - 2px)));
-}
-.glass img { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; }
-.glass::after {
-  content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0;
-  background: linear-gradient(var(--dim-color), var(--dim-color)), var(--panel);
-}
-html.has-glass .bar button:active .glass { display: none; }
-/* Сучасний WebView: розмите фото рухається разом із прокруткою в протилежний бік
-   силами відеочипа (scroll-driven animation), а кути обрізаються без зайвих проходів. */
-@keyframes glass-follow { from { transform: translateY(0); } to { transform: translateY(var(--smax, 0px)); } }
-html.glass-st.has-glass .glass { clip-path: none; overflow: hidden; border-radius: max(0px, calc(var(--radius) - 2px)); }
-html.glass-st .glass img {
-  position: absolute; will-change: transform;
-  animation: glass-follow 1ms linear both;
-  animation-timeline: scroll(root block);
-}
+/* «Скло»: одне заздалегідь розмите фото, закріплене на екрані, як і чітке.
+   Його видно лише в межах таблиць і кнопок (одна спільна маска), тож під час
+   прокрутки телефон не розмиває й не перемальовує нічого — лише зсуває маску. */
+#glass { display: none; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; pointer-events: none; }
+html.has-glass #glass { display: block; }
+#glass img { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; }
+.glass-dim { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: var(--dim-color); }
 
-#app { max-width: 620px; margin: 0 auto; padding: 8px 10px 16px; }
+#app { position: relative; max-width: 620px; margin: 0 auto; padding: 8px 10px 16px; }
 
 /* Шапка */
 .bar { display: flex; gap: 6px; }
@@ -585,8 +564,7 @@ html.glass-st .glass img {
     return p;
   }
 
-  const GLASS_ST = !!(window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()"));
-  if (GLASS_ST) document.documentElement.classList.add("glass-st");
+  const GLASS_OK = !!(window.CSS && CSS.supports && CSS.supports("clip-path", "path('M0 0H1V1Z')"));
   const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
   function systemIsDark() {
     if (IN_APP) { try { return !!A.isSystemDark(); } catch (e) { /* далі медіазапит */ } }
@@ -612,6 +590,7 @@ html.glass-st .glass img {
     s.setProperty("--radius", (radiusPct * 0.24).toFixed(1) + "px");
     const c = document.documentElement.classList;
     c.toggle("has-wp", !!wpData);
+    if (typeof scheduleGlassPath === "function" && document.readyState !== "loading") scheduleGlassPath();
   }
   function applyColors() {
     const p = palette(effectiveMode());
@@ -1013,7 +992,7 @@ html.glass-st .glass img {
       renderLegend(st, today);
       renderDays(wd, todayWd);
       renderLessons(wd, info.school && wd === d.getDay() ? st : null);
-      refreshGlass();
+      scheduleGlassPath();
     }
     const extraSig = k + "|" + cls;
     if (extraSig !== lastExtra) {
@@ -1023,7 +1002,7 @@ html.glass-st .glass img {
       renderMeals();
       renderEvacuation();
       renderDuty(todayWd);
-      refreshGlass();
+      scheduleGlassPath();
     }
     if (leftEl && typeof st.left === "number") setText(leftEl, fmtLeft(st.left));
     if (updateCountdown(ms)) lastExtra = "";
@@ -1093,44 +1072,37 @@ html.glass-st .glass img {
     }
     try { return c2.toDataURL("image/jpeg", 0.85); } catch (e) { return ""; }
   }
-  // Під кожну таблицю й кнопку головного екрана кладемо шар «скла» з розмитим фото.
+  // Маска «скла»: контури всіх таблиць і кнопок головного екрана одним шляхом.
   const PANELS = ".today, .bar button, .tbl, .status, .days, .box, .cd-main";
-  function refreshGlass() {
-    if (!blurUrl || !document.documentElement.classList.contains("has-glass")) return;
-    for (const p of $("app").querySelectorAll(PANELS)) {
-      let g = p.firstElementChild;
-      if (!g || !g.classList.contains("glass")) {
-        g = document.createElement("span");
-        g.className = "glass";
-        g.setAttribute("aria-hidden", "true");
-        const im = document.createElement("img");
-        im.alt = "";
-        g.appendChild(im);
-        p.insertBefore(g, p.firstChild);
-      }
-      const im = g.firstElementChild;
-      if (im._src !== blurUrl) { im._src = blurUrl; im.src = blurUrl; }
-    }
-    placeGlass();
+  function rrect(x, y, w, h, tl, tr, br, bl) {
+    const f = (n) => Math.round(n * 2) / 2;
+    x = f(x); y = f(y); w = f(w); h = f(h);
+    return "M" + (x + tl) + " " + y + "H" + (x + w - tr) + "A" + tr + " " + tr + " 0 0 1 " + (x + w) + " " + (y + tr) +
+      "V" + (y + h - br) + "A" + br + " " + br + " 0 0 1 " + (x + w - br) + " " + (y + h) +
+      "H" + (x + bl) + "A" + bl + " " + bl + " 0 0 1 " + x + " " + (y + h - bl) +
+      "V" + (y + tl) + "A" + tl + " " + tl + " 0 0 1 " + (x + tl) + " " + y + "Z";
   }
-  // Зсув кожного «скла» так, щоб розмите фото лягало точно під чітке на екрані.
-  function placeGlass() {
-    if (!GLASS_ST || !document.documentElement.classList.contains("has-glass")) return;
-    const sx = window.scrollX, sy = window.scrollY;
-    const smax = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
-    document.documentElement.style.setProperty("--smax", smax + "px");
-    for (const g of $("app").querySelectorAll(".glass")) {
-      const r = g.getBoundingClientRect();
-      const im = g.firstElementChild;
-      const x = Math.round(-(r.left + sx)), y = Math.round(-(r.top + sy));
-      if (im._x !== x) { im._x = x; im.style.left = x + "px"; }
-      if (im._y !== y) { im._y = y; im.style.top = y + "px"; }
+  function updateGlassPath() {
+    if (!document.documentElement.classList.contains("has-glass")) return;
+    const g = $("glass");
+    const G = g.getBoundingClientRect();
+    let d = "";
+    for (const p of $("app").querySelectorAll(PANELS)) {
+      const r = p.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1) continue;
+      const cs = getComputedStyle(p);
+      const lim = Math.min(r.width, r.height) / 2;
+      const rad = (v) => Math.min(lim, parseFloat(v) || 0);
+      d += rrect(r.left - G.left, r.top - G.top, r.width, r.height,
+        rad(cs.borderTopLeftRadius), rad(cs.borderTopRightRadius), rad(cs.borderBottomRightRadius), rad(cs.borderBottomLeftRadius));
     }
+    const v = d ? "path('" + d + "')" : "inset(100%)";
+    if (g._clip !== v) { g._clip = v; g.style.clipPath = v; }
   }
   let glassFrame = 0;
-  function schedulePlaceGlass() {
+  function scheduleGlassPath() {
     if (glassFrame) return;
-    glassFrame = requestAnimationFrame(() => { glassFrame = 0; placeGlass(); });
+    glassFrame = requestAnimationFrame(() => { glassFrame = 0; updateGlassPath(); });
   }
   // Два фото: чітке — на весь фон, розмите — лише під таблицями й кнопками.
   function paintWallpaper(draft) {
@@ -1144,9 +1116,11 @@ html.glass-st .glass img {
       if (key !== blurKey) {
         blurUrl = makeBlurred(draft);
         blurKey = key;
+        const im = $("glassImg");
+        if (blurUrl && im._src !== blurUrl) { im._src = blurUrl; im.src = blurUrl; }
       }
-      root.classList.toggle("has-glass", !!blurUrl);
-      refreshGlass();
+      root.classList.toggle("has-glass", !!blurUrl && GLASS_OK);
+      scheduleGlassPath();
     } else {
       root.classList.remove("has-glass");
     }
@@ -1594,7 +1568,7 @@ html.glass-st .glass img {
       resizeTimer = setTimeout(layoutWallpaper, 120);
     });
     setupEditor();
-    if (window.ResizeObserver) new ResizeObserver(schedulePlaceGlass).observe($("app"));
+    if (window.ResizeObserver) new ResizeObserver(scheduleGlassPath).observe($("app"));
     showWallpaper();
     tick();
     if (!cls) openSheet("first");
@@ -1610,6 +1584,7 @@ html.glass-st .glass img {
 <body>
 <div id="wp" hidden></div>
 <div id="app">
+  <div id="glass" aria-hidden="true"><img id="glassImg" alt=""><i class="glass-dim"></i></div>
   <header class="bar">
     <div class="today"><span class="d" id="dname"></span><span class="t" id="clock"></span></div>
     <button type="button" id="clsBtn" aria-label="Змінити клас">Клас</button>

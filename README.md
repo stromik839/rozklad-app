@@ -51,7 +51,7 @@ git push -u origin main
 
 В Termux на телефоне (архив в «Загрузках», имя подставь своё):
 ```bash
-cd ~ && unzip -o /storage/emulated/0/Download/Rozklad-v4.zip && cd ~/Rozklad-android && git add -A && git commit -m "Оновлення" && git push
+cd ~ && unzip -o /storage/emulated/0/Download/Rozklad-v5.zip && cd ~/Rozklad-android && git add -A && git commit -m "Оновлення" && git push
 ```
 Потом `gh run watch`, и когда сборка закончится:
 ```bash
