@@ -1,7 +1,10 @@
 package ua.school.rozklad;
 
 import android.app.Activity;
+import android.appwidget.AppWidgetManager;
 import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
@@ -23,15 +26,10 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
 /**
  * Показує розклад з assets/index.html: передає сторінці системну тему і відступи
- * під системні смуги, зберігає налаштування, відкриває галерею для шпалер.
+ * під системні смуги, зберігає налаштування, відкриває галерею для шпалер
+ * і дає сторінці керувати віджетами на робочому столі.
  * Дозволів застосунку не потрібно: фото вибирається через системний вибір фото.
  */
 public class MainActivity extends Activity {
@@ -251,6 +249,9 @@ public class MainActivity extends Activity {
             web.onPause();
             web.pauseTimers();
         }
+        // виходимо із застосунку — віджети підхоплюють свіжі налаштування
+        final Context app = getApplicationContext();
+        new Thread(() -> WidgetUpdater.updateAll(app)).start();
         super.onPause();
     }
 
@@ -274,44 +275,6 @@ public class MainActivity extends Activity {
             web = null;
         }
         super.onDestroy();
-    }
-
-    /* ---------- Великі дані (фото шпалер) — окремим файлом у пам'яті застосунку ---------- */
-
-    private File bigFile(String key) {
-        return new File(getFilesDir(), "big_" + key.replaceAll("[^A-Za-z0-9_]", "_") + ".txt");
-    }
-
-    private String readBig(String key) {
-        File f = bigFile(key);
-        if (!f.isFile()) return "";
-        byte[] buf = new byte[(int) f.length()];
-        try (FileInputStream in = new FileInputStream(f)) {
-            int off = 0;
-            while (off < buf.length) {
-                int n = in.read(buf, off, buf.length - off);
-                if (n < 0) break;
-                off += n;
-            }
-            return new String(buf, 0, off, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            return "";
-        }
-    }
-
-    private boolean writeBig(String key, String value) {
-        File f = bigFile(key);
-        if (value == null || value.isEmpty()) {
-            return !f.exists() || f.delete();
-        }
-        File tmp = new File(f.getPath() + ".tmp");
-        try (FileOutputStream out = new FileOutputStream(tmp)) {
-            out.write(value.getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            tmp.delete();
-            return false;
-        }
-        return tmp.renameTo(f);
     }
 
     /** Доступно зі сторінки як window.Android. */
@@ -340,12 +303,45 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getBig(String key) {
-            return readBig(key);
+            return Store.readBig(MainActivity.this, key);
         }
 
         @JavascriptInterface
         public boolean setBig(String key, String value) {
-            return writeBig(key, value);
+            return Store.writeBig(MainActivity.this, key, value);
+        }
+
+        /* ---------- Віджети ---------- */
+
+        @JavascriptInterface
+        public String getWidgets() {
+            return WidgetUpdater.listJson(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public void setWidgetConfig(int id, String json) {
+            WidgetConfig.save(MainActivity.this, id, json, WidgetUpdater.kindOf(MainActivity.this, id));
+            WidgetUpdater.update(MainActivity.this, new int[] {id});
+            Store.cleanupWidgetPhotos(MainActivity.this);
+        }
+
+        @JavascriptInterface
+        public String widgetPreview(int id, String json) {
+            return WidgetUpdater.previewDataUrl(MainActivity.this, id, json);
+        }
+
+        /** Попросити робочий стіл додати віджет (Android 8+, якщо робочий стіл це вміє). */
+        @JavascriptInterface
+        public boolean pinWidget(String kind) {
+            if (Build.VERSION.SDK_INT < 26) return false;
+            AppWidgetManager m = AppWidgetManager.getInstance(MainActivity.this);
+            if (!m.isRequestPinAppWidgetSupported()) return false;
+            return m.requestPinAppWidget(new ComponentName(MainActivity.this, WidgetUpdater.providerFor(kind)), null, null);
+        }
+
+        @JavascriptInterface
+        public void refreshWidgets() {
+            WidgetUpdater.updateAll(MainActivity.this);
         }
 
         @JavascriptInterface

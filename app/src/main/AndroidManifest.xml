@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Дозволів немає: час береться з телефону, розклад і канікули вбудовані. -->
+    <!-- Точні будильники — лише щоб віджети перемикали підсвітку саме в момент дзвоника.
+         Користувача ні про що не питають: ці дозволи видаються автоматично під час встановлення. -->
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -20,5 +25,50 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Три віджети: дзвінки, уроки і разом. Налаштовуються в застосунку. -->
+        <receiver
+            android:name=".BellsWidget"
+            android:exported="true"
+            android:label="@string/widget_bells">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_bells" />
+        </receiver>
+        <receiver
+            android:name=".LessonsWidget"
+            android:exported="true"
+            android:label="@string/widget_lessons">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_lessons" />
+        </receiver>
+        <receiver
+            android:name=".BothWidget"
+            android:exported="true"
+            android:label="@string/widget_both">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_both" />
+        </receiver>
+
+        <!-- Будильник на дзвоник; також перемальовує віджети, якщо на телефоні змінили час чи пояс. -->
+        <receiver
+            android:name=".WidgetTickReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

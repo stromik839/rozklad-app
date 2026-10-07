@@ -7,7 +7,8 @@
 <title>Розклад</title>
 <!--
   Розклад дзвінків і уроків, 2026–2027 н. р.
-  Щоб змінити розклад, дзвінки, канікули чи інші таблиці — редагуйте блок «ДАНІ» у скрипті нижче.
+  Щоб змінити розклад, дзвінки, канікули чи інші таблиці — редагуйте файл data.js
+  (його читають і застосунок, і віджети на робочому столі).
 -->
 <style>
 @font-face {
@@ -250,6 +251,22 @@ html.has-glass #glass { display: block; }
 .sw-other input::-webkit-color-swatch { border: 0; }
 .reset { width: 100%; margin-top: 8px; border-radius: var(--radius); }
 
+/* Віджети */
+#wsheet { z-index: 12; }
+.wprev {
+  display: flex; align-items: center; justify-content: center; min-height: 150px; padding: 16px;
+  border: 2px solid var(--line); border-radius: var(--radius);
+  background: linear-gradient(160deg, #3b5f8a 0%, #24324a 55%, #3d2a3f 100%);
+}
+.wprev img { display: block; max-width: 100%; max-height: 340px; }
+.wlist { grid-template-columns: 1fr; }
+.wlist button { display: flex; align-items: center; justify-content: space-between; min-height: 50px; padding: 0 14px; font-size: 17px; }
+.wlist button small { font-size: 14px; }
+.wcolors { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
+.wcolors button { min-height: 40px; padding: 0; border-radius: calc(var(--radius) / 2); }
+.wcolors button.sel { outline: 3px solid var(--fg); outline-offset: 2px; }
+.wcolors .auto { grid-column: 1 / -1; padding: 0 12px; font-size: 15px; }
+
 /* Редактор шпалер: пересунути і збільшити фото */
 .editor { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 20; background: #000; }
 .ed-img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; overflow: hidden; touch-action: none; cursor: grab; }
@@ -278,151 +295,22 @@ html.has-glass #glass { display: block; }
   .bottom, .extra { margin-top: 0; border-top: 0; }
 }
 </style>
+<script src="data.js"></script>
 <script>
 (() => {
   "use strict";
 
-  /* =====================================================================
-     ДАНІ. Щоб змінити розклад чи таблиці — редагуйте тільки цей блок.
-     ===================================================================== */
-
-  // Розклад дзвінків: [початок, кінець]. Перший рядок — 1-й урок.
-  const BELLS = [
-    ["08:30", "09:15"],
-    ["09:20", "10:05"],
-    ["10:20", "11:05"],
-    ["11:20", "12:05"],
-    ["12:20", "13:05"],
-    ["13:15", "14:00"],
-    ["14:05", "14:50"],
-    ["14:55", "15:40"] // 8-й урок: на листку дзвінків його немає, час приблизний
-  ];
-
-  // Структура навчального року (рррр-мм-дд, дати включно)
-  const TERMS = [
-    ["2026-09-01", "2026-12-25", "I семестр"],
-    ["2027-01-13", "2027-05-31", "II семестр"]
-  ];
-  const HOLIDAYS = [
-    ["2026-10-26", "2026-11-01", "Осінні канікули"],
-    ["2026-12-28", "2027-01-12", "Зимові канікули"],
-    ["2027-03-22", "2027-03-28", "Весняні канікули"]
-  ];
-  const YEAR = "2026–2027 навчальний рік";
-
-  const CLASSES = ["5", "6-А", "6-Б", "7-А", "7-Б", "8", "9", "10-А", "10-Б", "11"];
-
-  // Уроки. Для кожного класу 5 рядків: ПН, ВТ, СР, ЧТ, ПТ.
-  const SCHEDULE = {
-    "5": [
-      ["Укр.мова", "Математ.", "Укр.літ.", "Фізкульт.", "Англ.мова", "Муз.м."],
-      ["Пізн.пр.", "Англ.мова", "Укр.мова", "Математ.", "Технології", "Обр.м."],
-      ["Укр.мова", "Зар.літ.", "Математ.", "Інформ.", "Історія", "Фізкульт."],
-      ["Англ.мова", "Укр.мова", "Укр.літ.", "Математ.", "Історія", "Зар.літ."],
-      ["Інформ.", "Пізн.пр.", "Англ.мова", "Математ.", "ЗБД", "Технології", "Фізкульт."]
-    ],
-    "6-А": [
-      ["Муз.мист.", "Укр.мова", "Математ.", "Інф(І і ІІ)", "Географія", "Фізкульт.", "Обр.м."],
-      ["Укр.мова", "Математ.", "Інф(І і ІІ)", "Пізн.пр.", "Англ.мова", "Історія", "ЗБД"],
-      ["Укр.мова", "Англ.мова", "Зар.літ.", "Фізкульт.", "Математ.", "Укр.літ.", "Технології"],
-      ["Технології", "Географія", "Англ.мова", "Математ.", "Укр.мова", "Історія", "Пізн.пр."],
-      ["Гр.осв.", "Англ.мова", "Зар.літ.", "Математ.", "Укр.літ.", "Фізкульт."]
-    ],
-    "6-Б": [
-      ["Укр.мова", "Математ.", "Англ.мова", "Фізкульт.", "Інф(І і ІІ)", "Укр.літ.", "Географія"],
-      ["Історія", "Англ.мова", "Укр.мова", "Математ.", "Пізн.пр.", "Гр.осв.", "Обр.мист."],
-      ["Історія", "Математ.", "Англ.мова", "Технології", "Зар.літ.", "Фізкульт.", "ЗБД"],
-      ["Укр.мова", "Інф(І і ІІ)", "Математ.", "Технології", "Англ.мова", "Географія", "Муз.м."],
-      ["Укр.мова", "Зар.літ.", "Математ.", "Укр.літ.", "Фізкульт.", "Пізн.пр."]
-    ],
-    "7-А": [
-      ["Укр.мова", "Фізкульт.", "Біологія", "Алгебра", "Англ.мова", "Геометрія", "Вс.іст."],
-      ["Муз.мист.", "Фізика", "Географія", "Укр.мова", "Укр.літ.", "Обр.мист.", "Гр.осв."],
-      ["Укр.мова", "Алгебра", "Іст.Укр.", "Біологія", "Геометрія", "Англ.мова", "Фізкульт."],
-      ["Хімія", "Зар.літ.", "Інф(І і ІІ)", "Англ.мова", "Біологія", "Фізика", "Технології"],
-      ["Укр.мова", "Алгебра", "Географія", "Укр.літ.", "Фізкульт.", "Англ.мова", "ЗБД"]
-    ],
-    "7-Б": [
-      ["Алгебра", "Укр.мова", "Геометрія", "Англ.мова", "Фізкульт.", "Вс.іст.", "Обр.м."],
-      ["Англ.мова", "Алгебра", "Фізика", "Іст.Укр.", "Укр.літ.", "Біологія", "Географія"],
-      ["Інф(І)", "Англ.мова", "Геометрія", "Укр.мова", "Біологія", "Географія", "Інф(ІІ)", "Фізкульт."],
-      ["Укр.мова", "Муз.мист.", "Зар.літ.", "Фізкульт.", "Хімія", "Біологія", "Фізика"],
-      ["Алгебра", "Укр.мова", "Гр.осв.", "Укр.літ.", "Англ.мова", "ЗБД", "Технології"]
-    ],
-    "8": [
-      ["Алгебра", "Біологія", "Укр.мова", "Укр.літ.", "Геометрія", "Географія", "Обр.мист.", "Фізкульт."],
-      ["Хімія", "Інф(І)", "Іст.Укр.", "Біологія", "Укр.мова", "Англ.мова", "Гр.осв."],
-      ["Алгебра", "Укр.мова", "Фізкульт.", "Геометрія", "Фізика", "Зар.літ.", "ЗБД"],
-      ["Англ.мова", "Технології", "Біологія", "Хімія", "Інф(ІІ)", "Укр.літ.", "Інф(І)"],
-      ["Алгебра", "Укр.мова", "Вс.іст.", "Англ.мова", "Географія", "Фізика", "Муз.мист.", "Фізкульт."]
-    ],
-    "9": [
-      ["Алгебра", "Укр/англ.м.", "Англ./укр.м.", "Іст.Укр.", "Біологія", "Інф/техн.", "Нім.(І)/фізк(ІІ)"],
-      ["Укр.літ.", "Хімія", "Біологія", "Фізика", "Вс.іст.", "Інф/техн.", "Техн/інф", "Фізк(І)"],
-      ["Зар.літ.", "Фізика", "Алгебра", "Англ/укр.м.", "Укр/англ.м.", "Геометрія", "Муз./обр.м."],
-      ["Алгебра", "Біологія", "Укр.літ.", "Англ./укр.м.", "Укр.м/англ.м.", "Хімія", "Фіз(І)/нім(ІІ)", "Фізк(ІІ)"],
-      ["Фізика", "Прав./Ф.гр.", "Н.м/фізк(ІІ)", "Іст.Укр.", "Геометрія", "Географія", "Фіз(І)/нім(ІІ)"]
-    ],
-    "10-А": [
-      ["Хімія", "Англ.мова", "Інф(І)", "Математ.(г)", "Укр.мова", "Біологія"],
-      ["Математ.(а)", "Укр.літ.", "Іст.Укр.", "Фізкульт.", "Фізика", "Гр.осв."],
-      ["Англ.мова", "Технології", "Фізика", "Математ.(г)", "Інф(І)", "Інф(ІІ)"],
-      ["Укр.мова", "Вс.іст.", "Біологія", "Зар.літ.", "Географія", "Гр.осв.", "Фізкульт."],
-      ["Іст.Укр.", "Укр.літ.", "Технології", "Фізкульт.", "Фізика", "Гр.осв.", "Інф(ІІ)"]
-    ],
-    "10-Б": [
-      ["Англ.мова", "Інф(ІІ)", "Хімія", "Укр.мова", "Біологія", "Математ.(г)", "Інф(І)"],
-      ["Англ.мова", "Іст.Укр.", "Укр.літ.", "Фізкульт.", "Математ.(а)", "Фізика", "Гр.осв."],
-      ["Математ.(г)", "Фізкульт.", "Інф(ІІ)", "Фізика", "Технології", "Технології"],
-      ["Вс.іст.", "Укр.мова", "Географія", "Біологія", "Зар.літ.", "Інф(І)", "Гр.осв."],
-      ["Географія", "Фізика", "Укр.літ.", "Фізкульт.", "Іст.Укр."]
-    ],
-    "11": [
-      ["Іст.Укр.", "Біологія", "Іст.Укр.", "Хімія", "Математ.(г)", "Англ./нім.м."],
-      ["Фізика", "Укр.літ.", "Математ.(а)", "Інф/укр.м(ІІ)", "Укр./інф(ІІ)", "Хімія"],
-      ["Фізика", "Вс.іст.", "Біологія", "Зар.літ.", "Фізк(І і ІІ)", "Астрономія"],
-      ["Географія", "Англ.м/нім.м", "Техн/фізк(ІІ)", "Інф/фізк(І)", "Математ.(а)"],
-      ["Укр.літ.", "Фізк(І і ІІ)", "Фізика", "Укр.м/техн", "Техн/укр.м."]
-    ]
-  };
-
-  // Графік харчування: хто, о котрій, і які класи з налаштувань до цього рядка належать
-  const MEALS = [
-    { who: "1", time: "09:55", cls: [] },
-    { who: "2–4", time: "10:00", cls: [] },
-    { who: "5", time: "10:05", cls: ["5"] },
-    { who: "Сойми", time: "10:30", cls: [] },
-    { who: "6-А, 6-Б", time: "11:00", cls: ["6-А", "6-Б"] },
-    { who: "7-А, 7-Б, 8", time: "11:10", cls: ["7-А", "7-Б", "8"] },
-    { who: "9", time: "12:00", cls: ["9"] },
-    { who: "10–11", time: "12:10", cls: ["10-А", "10-Б", "11"] }
-  ];
-
-  // План евакуації учасників освітнього процесу
-  const EVACUATION = [
-    { floor: "I поверх", rows: [
-      { who: "1–4 класи", route: "запасний вихід №3, укриття №2", cls: [] }
-    ] },
-    { floor: "II поверх", rows: [
-      { who: "6-А", route: "вихід №1, №3, укриття №2", cls: ["6-А"] },
-      { who: "5, 10-А, 7-Б", route: "запасний вихід №2, укриття №1", cls: ["5", "10-А", "7-Б"] },
-      { who: "6-Б", route: "запасний вихід №2, укриття №1", cls: ["6-Б"] },
-      { who: "7-А, 8", route: "вихід №1, укриття №1", cls: ["7-А", "8"] }
-    ] },
-    { floor: "III поверх", rows: [
-      { who: "10-Б, 11", route: "вихід №1, укриття №1", cls: ["10-Б", "11"] },
-      { who: "9", route: "вихід №1, укриття №1", cls: ["9"] }
-    ] }
-  ];
-
-  // Чергування учнів (1 — понеділок … 5 — п’ятниця)
-  const DUTY = [
-    { day: 1, items: [{ cls: "7-А", where: "I, III поверх" }, { cls: "7-Б", where: "II поверх, подвір’я" }] },
-    { day: 2, items: [{ cls: "8", where: "" }] },
-    { day: 3, items: [{ cls: "9", where: "" }] },
-    { day: 4, items: [{ cls: "10-А", where: "" }] },
-    { day: 5, items: [{ cls: "10-Б", where: "" }] }
-  ];
+  /* Дані розкладу — у файлі data.js (той самий файл читають віджети). */
+  const D = window.ROZKLAD_DATA || {};
+  const BELLS = D.bells || [];
+  const TERMS = D.terms || [];
+  const HOLIDAYS = D.holidays || [];
+  const YEAR = D.year || "";
+  const CLASSES = D.classes || [];
+  const SCHEDULE = D.schedule || {};
+  const MEALS = D.meals || [];
+  const EVACUATION = D.evacuation || [];
+  const DUTY = D.duty || [];
 
   /* Кольори тем за замовчуванням і набір готових кольорів для налаштувань */
   const DEFAULT_COLORS = {
@@ -1174,7 +1062,7 @@ html.has-glass #glass { display: block; }
     });
   }
   // Зменшуємо фото до 2400 px по довшій стороні: вистачає для збільшення і швидко відкривається.
-  function shrinkPhoto(file) {
+  function shrinkPhoto(file, maxSide) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = () => reject(new Error("read"));
@@ -1182,7 +1070,7 @@ html.has-glass #glass { display: block; }
         const img = new Image();
         img.onload = () => {
           try {
-            const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+            const k = Math.min(1, (maxSide || 2400) / Math.max(img.naturalWidth, img.naturalHeight));
             const w = Math.max(1, Math.round(img.naturalWidth * k));
             const h = Math.max(1, Math.round(img.naturalHeight * k));
             const c = document.createElement("canvas");
@@ -1210,6 +1098,7 @@ html.has-glass #glass { display: block; }
       return;
     }
     const saved = bigStore.set("wallpaper", wpData);
+    refreshWidgets();
     wpCrop = { cx: 0.5, cy: 0.5, zoom: 1 };
     store.set("wpCrop", JSON.stringify(wpCrop));
     await showWallpaper();
@@ -1448,10 +1337,182 @@ html.has-glass #glass { display: block; }
     sheetMode = "";
   }
 
+  /* ---------- Віджети на робочому столі (лише в Android-застосунку) ---------- */
+  const HAS_W = IN_APP && typeof A.getWidgets === "function";
+  const W_KINDS = [["bells", "Дзвінки"], ["lessons", "Уроки"], ["both", "Разом"]];
+  const W_THEMES = [["system", "Як у системі"], ["light", "Світла"], ["dark", "Темна"]];
+  const W_BGS = [["none", "Немає"], ["color", "Колір"], ["photo", "Фото"]];
+  // Що копіює «застосувати до всіх»: увесь вигляд, але не те, що віджет показує.
+  const W_STYLE = ["theme", "bg", "color", "photo", "clear", "blur", "dim", "radius", "scale"];
+  const W_SLIDERS = {
+    wClear: ["clear", 0, 100], wBlur: ["blur", 0, 100], wDim: ["dim", 0, 90],
+    wRadius: ["radius", 0, 100], wScale: ["scale", 70, 130]
+  };
+  let widgets = [];
+  let wSel = 0;
+  let wOpen = false;
+
+  function refreshWidgets() {
+    if (IN_APP && typeof A.refreshWidgets === "function") { try { A.refreshWidgets(); } catch (e) { /* без віджетів */ } }
+  }
+  function loadWidgets() {
+    widgets = [];
+    if (HAS_W) { try { widgets = JSON.parse(A.getWidgets() || "[]") || []; } catch (e) { widgets = []; } }
+    if (!widgets.some((w) => w.id === wSel)) wSel = widgets.length ? widgets[0].id : 0;
+  }
+  const curW = () => widgets.find((w) => w.id === wSel) || null;
+  const kindName = (k) => (W_KINDS.find((x) => x[0] === k) || W_KINDS[2])[1];
+  function optButtons(list, cur, attr) {
+    return list.map((x) => '<button type="button" ' + attr + '="' + x[0] + '"' + (x[0] === cur ? ' class="sel"' : "") +
+      ">" + x[1] + "</button>").join("");
+  }
+  function setWNote(id, text) {
+    $(id).textContent = text;
+    $(id).hidden = !text;
+  }
+  function renderWidgetsUi() {
+    $("wNoApp").hidden = HAS_W;
+    $("wBody").hidden = !HAS_W;
+    if (!HAS_W) return;
+    $("wAdd").innerHTML = optButtons(W_KINDS, "", "data-wadd");
+    $("wList").innerHTML = widgets.map((w, i) =>
+      '<button type="button" data-wid="' + w.id + '"' + (w.id === wSel ? ' class="sel"' : "") + ">Віджет " + (i + 1) +
+      "<small>" + kindName(w.cfg.kind) + "</small></button>").join("");
+    $("wList").hidden = !widgets.length;
+    $("wEmpty").hidden = widgets.length > 0;
+    const w = curW();
+    $("wEdit").hidden = !w;
+    if (!w) return;
+    const c = w.cfg;
+    $("wKind").innerHTML = optButtons(W_KINDS, c.kind, "data-wkind");
+    $("wTheme").innerHTML = optButtons(W_THEMES, c.theme, "data-wtheme");
+    $("wBg").innerHTML = optButtons(W_BGS, c.bg, "data-wbg");
+    $("wColors").hidden = c.bg !== "color";
+    $("wColors").innerHTML = '<button type="button" class="auto' + (c.color ? "" : " sel") + '" data-wcolor="">' +
+      "Як у теми: чорний або білий</button>" + SWATCHES.map((col) =>
+      '<button type="button" data-wcolor="' + col + '"' + (col === c.color ? ' class="sel"' : "") +
+      ' style="background:' + col + '" aria-label="' + col + '"></button>').join("");
+    $("wPhotoRow").hidden = c.bg !== "photo";
+    $("wClearRow").hidden = c.bg === "none";
+    $("wBlurRow").hidden = c.bg !== "photo";
+    $("wDimRow").hidden = c.bg !== "photo";
+    for (const id in W_SLIDERS) {
+      const v = c[W_SLIDERS[id][0]];
+      $(id).value = String(v);
+      $(id + "V").textContent = v + "%";
+    }
+    $("wApplyAll").hidden = widgets.length < 2;
+    wPreview();
+  }
+  // Прев’ю малює сам застосунок тим самим кодом, що й віджет, — тож воно точне.
+  let wPrevTimer = 0;
+  function wPreview() {
+    if (wPrevTimer) return;
+    wPrevTimer = setTimeout(() => {
+      wPrevTimer = 0;
+      const w = curW();
+      if (!w) return;
+      let url = "";
+      try { url = A.widgetPreview(w.id, JSON.stringify(w.cfg)) || ""; } catch (e) { url = ""; }
+      $("wPrevImg").src = url;
+      $("wPrevImg").hidden = !url;
+    }, 60);
+  }
+  function saveW() {
+    const w = curW();
+    if (!w) return;
+    try { A.setWidgetConfig(w.id, JSON.stringify(w.cfg)); } catch (e) { /* старий застосунок */ }
+  }
+  function openWidgets() {
+    loadWidgets();
+    wOpen = true;
+    setWNote("wNote", "");
+    setWNote("wAddNote", "");
+    $("wsheet").hidden = false;
+    $("wsheet").scrollTop = 0;
+    renderWidgetsUi();
+  }
+  function closeWidgets() {
+    wOpen = false;
+    $("wsheet").hidden = true;
+  }
+  async function onWidgetPhoto(input) {
+    const file = input.files && input.files[0];
+    input.value = "";
+    const w = curW();
+    if (!file || !w) return;
+    setWNote("wNote", "Обробляю фото…");
+    let data = "";
+    try {
+      data = await shrinkPhoto(file, 1600);
+    } catch (e) {
+      setWNote("wNote", "Не вдалося відкрити це фото. Спробуйте інше, у форматі JPG або PNG.");
+      return;
+    }
+    const token = "w" + Date.now();
+    if (!bigStore.set("wph_" + token, data)) { setWNote("wNote", "Фото не вдалося зберегти."); return; }
+    w.cfg.photo = token;
+    saveW();
+    wPreview();
+    setWNote("wNote", "");
+  }
+  function onWidgetClick(b) {
+    const d = b.dataset;
+    if (b.id === "wOpen") { openWidgets(); return true; }
+    if (b.id === "wclose") { closeWidgets(); return true; }
+    if (d.wadd) {
+      let ok = false;
+      try { ok = !!A.pinWidget(d.wadd); } catch (e) { ok = false; }
+      setWNote("wAddNote", ok
+        ? "Підтвердьте додавання на екрані — новий віджет з’явиться в списку нижче."
+        : "Цей робочий стіл не дає додати віджет із застосунку. Затисніть порожнє місце на робочому столі, " +
+          "відкрийте «Віджети» і знайдіть «Розклад».");
+      setTimeout(() => { if (wOpen) { loadWidgets(); renderWidgetsUi(); } }, 2500);
+      return true;
+    }
+    if (d.wid) { wSel = +d.wid; setWNote("wNote", ""); renderWidgetsUi(); return true; }
+    const w = curW();
+    if (!w) return false;
+    if (d.wkind || d.wtheme || d.wbg) {
+      if (d.wkind) w.cfg.kind = d.wkind;
+      if (d.wtheme) w.cfg.theme = d.wtheme;
+      if (d.wbg) w.cfg.bg = d.wbg;
+      saveW();
+      renderWidgetsUi();
+      return true;
+    }
+    if (d.wcolor !== undefined) {
+      w.cfg.color = d.wcolor;
+      saveW();
+      renderWidgetsUi();
+      return true;
+    }
+    if (b.id === "wPhotoPick") { $("wgFile").click(); return true; }
+    if (b.id === "wPhotoApp") {
+      w.cfg.photo = "app";
+      saveW();
+      wPreview();
+      setWNote("wNote", wpData ? "Фон — шпалери застосунку." : "Шпалери застосунку не вибрані — поки що буде колір теми.");
+      return true;
+    }
+    if (b.id === "wApplyAll") {
+      let n = 0;
+      for (const o of widgets) {
+        if (o.id === w.id) continue;
+        for (const k of W_STYLE) o.cfg[k] = w.cfg[k];
+        try { A.setWidgetConfig(o.id, JSON.stringify(o.cfg)); n++; } catch (e) { /* пропускаємо */ }
+      }
+      setWNote("wNote", n ? "Стиль застосовано до " + n + " " + plural(n, "віджета", "віджетів", "віджетів") + "." : "");
+      return true;
+    }
+    return false;
+  }
+
   function onClick(e) {
     const b = e.target.closest ? e.target.closest("button") : null;
     if (!b) return;
     const d = b.dataset;
+    if (onWidgetClick(b)) return;
     if (b.id === "gear" || b.id === "clsBtn") { openSheet("settings"); return; }
     if (b.id === "sclose") { closeSheet(); return; }
     if (b.id === "wpPick") { setWpNote(""); $("wpFile").click(); return; }
@@ -1459,6 +1520,7 @@ html.has-glass #glass { display: block; }
     if (b.id === "wpRemove") {
       wpData = "";
       bigStore.set("wallpaper", "");
+      refreshWidgets();
       showWallpaper();
       renderWallpaper();
       setWpNote("");
@@ -1477,6 +1539,7 @@ html.has-glass #glass { display: block; }
     if (d.cls) {
       cls = d.cls;
       store.set("cls", cls);
+      refreshWidgets();
       if (sheetMode === "first") closeSheet(); else renderOptions();
       lastSig = "";
       lastExtra = "";
@@ -1504,6 +1567,16 @@ html.has-glass #glass { display: block; }
   }
   function onInput(e) {
     const t = e.target;
+    const ws = W_SLIDERS[t.id];
+    if (ws) {
+      const w = curW();
+      if (!w) return;
+      const v = clampInt(t.value, ws[1], ws[2], ws[1]);
+      w.cfg[ws[0]] = v;
+      $(t.id + "V").textContent = v + "%";
+      wPreview();
+      return;
+    }
     const sl = SLIDERS[t.id];
     if (sl) {
       const v = clampInt(t.value, 0, sl.max, 0);
@@ -1524,6 +1597,8 @@ html.has-glass #glass { display: block; }
   }
   function onChange(e) {
     const t = e.target;
+    if (W_SLIDERS[t.id]) { saveW(); return; }
+    if (t.id === "wgFile") { onWidgetPhoto(t); return; }
     if (SLIDERS[t.id]) {
       store.set(t.id, SLIDERS[t.id].get());
       if (t.id === "wpBlur") scheduleWallpaper(false);
@@ -1540,12 +1615,14 @@ html.has-glass #glass { display: block; }
   };
   window.onAppResume = () => {
     applyColors();
+    if (wOpen) { loadWidgets(); renderWidgetsUi(); }
     lastSig = "";
     lastExtra = "";
     if (document.readyState !== "loading") tick();
   };
   window.onAndroidBack = () => {
     if (!$("editor").hidden) { closeEditor(false); return true; }
+    if (wOpen) { closeWidgets(); return true; }
     if (sheetMode === "settings") { closeSheet(); return true; }
     return false;
   };
@@ -1557,6 +1634,7 @@ html.has-glass #glass { display: block; }
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
       if (!$("editor").hidden) closeEditor(false);
+      else if (wOpen) closeWidgets();
       else if (sheetMode === "settings") closeSheet();
     });
     document.addEventListener("visibilitychange", () => {
@@ -1688,9 +1766,71 @@ html.has-glass #glass { display: block; }
       </div>
       <div class="crows" id="crows"></div>
       <button type="button" class="reset" id="creset">Скинути кольори цієї теми</button>
+
+      <div class="group">Віджети</div>
+      <button type="button" class="reset" id="wOpen">Налаштувати віджети</button>
     </div>
 
     <p class="foot" id="foot"></p>
+  </div>
+</div>
+
+<div class="sheet" id="wsheet" hidden>
+  <div class="panel">
+    <div class="phead">
+      <h1>Віджети</h1>
+      <button type="button" id="wclose" class="icon" aria-label="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="note" id="wNoApp">Віджети працюють у застосунку на Android. Тут, у браузері, їх налаштувати не можна.</p>
+    <div id="wBody">
+      <div class="group">Додати на робочий стіл</div>
+      <div class="opts themes" id="wAdd"></div>
+      <p class="note" id="wAddNote" hidden></p>
+      <div class="group">Ваші віджети</div>
+      <div class="opts wlist" id="wList"></div>
+      <p class="note" id="wEmpty" hidden>На робочому столі поки немає віджетів «Розклад».</p>
+      <div id="wEdit" hidden>
+        <div class="group">Як виглядатиме</div>
+        <div class="wprev"><img id="wPrevImg" alt="Як виглядатиме віджет"></div>
+        <div class="group">Що показувати</div>
+        <div class="opts themes" id="wKind"></div>
+        <div class="group">Тема віджета</div>
+        <div class="opts themes" id="wTheme"></div>
+        <p class="note">Темна — білий текст, світла — чорний. Тема самого застосунку від цього не змінюється.</p>
+        <div class="group">Фон</div>
+        <div class="opts themes" id="wBg"></div>
+        <div class="wcolors" id="wColors" hidden></div>
+        <div class="row2" id="wPhotoRow">
+          <button type="button" id="wPhotoPick">Вибрати фото</button>
+          <button type="button" id="wPhotoApp">Шпалери застосунку</button>
+        </div>
+        <input type="file" id="wgFile" accept="image/*" hidden>
+        <div class="slider" id="wClearRow">
+          <label for="wClear"><span>Прозорість фону</span><span id="wClearV"></span></label>
+          <input type="range" id="wClear" min="0" max="100" step="5">
+        </div>
+        <div class="slider" id="wBlurRow">
+          <label for="wBlur"><span>Розмиття фону</span><span id="wBlurV"></span></label>
+          <input type="range" id="wBlur" min="0" max="100" step="5">
+        </div>
+        <div class="slider" id="wDimRow">
+          <label for="wDim"><span>Затемнення фону</span><span id="wDimV"></span></label>
+          <input type="range" id="wDim" min="0" max="90" step="5">
+        </div>
+        <div class="slider">
+          <label for="wRadius"><span>Заокруглення кутів</span><span id="wRadiusV"></span></label>
+          <input type="range" id="wRadius" min="0" max="100" step="5">
+        </div>
+        <div class="slider">
+          <label for="wScale"><span>Розмір тексту</span><span id="wScaleV"></span></label>
+          <input type="range" id="wScale" min="70" max="130" step="5">
+        </div>
+        <button type="button" class="reset" id="wApplyAll">Застосувати цей стиль до всіх віджетів</button>
+        <p class="note" id="wNote" hidden></p>
+      </div>
+    </div>
   </div>
 </div>
 

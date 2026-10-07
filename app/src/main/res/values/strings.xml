@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Розклад</string>
+    <string name="widget_bells">Розклад: дзвінки</string>
+    <string name="widget_lessons">Розклад: уроки</string>
+    <string name="widget_both">Розклад: уроки й дзвінки</string>
+    <string name="widget_bells_desc">Дзвінки з підсвіткою поточного і наступного уроку</string>
+    <string name="widget_lessons_desc">Уроки вашого класу на сьогодні</string>
+    <string name="widget_both_desc">Уроки з часом дзвінків в одній таблиці</string>
 </resources>

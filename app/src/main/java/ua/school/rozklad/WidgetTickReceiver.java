@@ -1,0 +1,25 @@
+package ua.school.rozklad;
+
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+
+/**
+ * Будильник на дзвоник, а також зміна часу чи часового поясу на телефоні:
+ * перемальовує віджети і ставить наступний будильник.
+ */
+public class WidgetTickReceiver extends BroadcastReceiver {
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        final Context app = context.getApplicationContext();
+        final PendingResult done = goAsync();
+        new Thread(() -> {
+            try {
+                WidgetUpdater.updateAll(app);
+            } finally {
+                done.finish();
+            }
+        }).start();
+    }
+}
