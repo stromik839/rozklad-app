@@ -13,7 +13,7 @@
 <style>
 @font-face {
   font-family: "Rozklad Serif";
-  src: url("fonts/LiberationSerif-Bold.ttf") format("truetype");
+  src: url("fonts/RozkladSerif-Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: block;
@@ -258,7 +258,8 @@ html.has-glass #glass { display: block; }
   border: 2px solid var(--line); border-radius: var(--radius);
   background: linear-gradient(160deg, #3b5f8a 0%, #24324a 55%, #3d2a3f 100%);
 }
-.wprev img { display: block; max-width: 100%; max-height: 340px; }
+.wprev img { display: block; max-width: 100%; max-height: 340px; transition: opacity .15s; }
+.wprev img.stale { opacity: .35; }
 .wlist { grid-template-columns: 1fr; }
 .wlist button { display: flex; align-items: center; justify-content: space-between; min-height: 50px; padding: 0 14px; font-size: 17px; }
 .wlist button small { font-size: 14px; }
@@ -284,6 +285,8 @@ html.has-glass #glass { display: block; }
 }
 .ed-bar .panel { max-width: 520px; }
 .ed-hint { margin: 0 0 8px; font-size: 14px; text-align: center; }
+
+.dataerr { margin: 0; padding: calc(var(--safe-top) + 32px) 20px 24px; font-size: 18px; text-align: center; }
 
 @media (max-width: 340px) {
   body { font-size: 15px; }
@@ -312,6 +315,17 @@ html.has-glass #glass { display: block; }
   const EVACUATION = D.evacuation || [];
   const DUTY = D.duty || [];
 
+  // Якщо data.js не прочитався (наприклад, після редагування з помилкою) — кажемо про це, а не показуємо порожній екран.
+  if (!(BELLS.length && TERMS.length && CLASSES.length && D.schedule)) {
+    const fail = () => {
+      document.body.innerHTML = '<p class="dataerr">Не вдалося прочитати розклад. ' +
+        "Перевірте файл data.js: лапки, коми й дужки.</p>";
+    };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fail);
+    else fail();
+    return;
+  }
+
   /* Кольори тем за замовчуванням і набір готових кольорів для налаштувань */
   const DEFAULT_COLORS = {
     light: { bg: "#ffffff", text: "#000000", line: "#000000", now: "#00c853", next: "#ffd600" },
@@ -339,6 +353,13 @@ html.has-glass #glass { display: block; }
   const HEX = /^#[0-9a-f]{6}$/;
 
   const $ = (id) => document.getElementById(id);
+  // CSS-змінні сторінки міняємо лише тоді, коли значення справді інше: кожна зміна змушує браузер перераховувати всю сторінку.
+  const varCache = Object.create(null);
+  function setVar(name, value) {
+    if (varCache[name] === value) return;
+    varCache[name] = value;
+    document.documentElement.style.setProperty(name, value);
+  }
   // Пишемо в сторінку лише те, що справді змінилось: менше зайвої роботи щосекунди.
   const setText = (el, text) => { if (el && el.textContent !== text) el.textContent = text; };
   const pad = (n) => (n < 10 ? "0" : "") + n;
@@ -469,28 +490,26 @@ html.has-glass #glass { display: block; }
   function applyLookVars() {
     const p = palette(effectiveMode());
     const panel = wpData ? rgba(p.bg, (100 - wpClear) / 100) : p.bg;
-    const s = document.documentElement.style;
-    s.setProperty("--panel", panel);
-    s.setProperty("--panel-real", panel);
-    s.setProperty("--bg-85", rgba(p.bg, 0.85));
-    s.setProperty("--dim", String(wpData ? wpDim / 100 : 0));
-    s.setProperty("--dim-color", "rgba(0,0,0," + (wpData ? wpDim / 100 : 0) + ")");
-    s.setProperty("--radius", (radiusPct * 0.24).toFixed(1) + "px");
+    setVar("--panel", panel);
+    setVar("--panel-real", panel);
+    setVar("--bg-85", rgba(p.bg, 0.85));
+    setVar("--dim", String(wpData ? wpDim / 100 : 0));
+    setVar("--dim-color", "rgba(0,0,0," + (wpData ? wpDim / 100 : 0) + ")");
+    setVar("--radius", (radiusPct * 0.24).toFixed(1) + "px");
     const c = document.documentElement.classList;
     c.toggle("has-wp", !!wpData);
     if (typeof scheduleGlassPath === "function" && document.readyState !== "loading") scheduleGlassPath();
   }
   function applyColors() {
     const p = palette(effectiveMode());
-    const s = document.documentElement.style;
-    s.setProperty("--bg", p.bg);
-    s.setProperty("--fg", p.text);
-    s.setProperty("--line", p.line);
-    s.setProperty("--now", p.now);
-    s.setProperty("--next", p.next);
-    s.setProperty("--on-now", onColor(p.now));
-    s.setProperty("--on-next", onColor(p.next));
-    s.colorScheme = isLight(p.bg) ? "light" : "dark";
+    setVar("--bg", p.bg);
+    setVar("--fg", p.text);
+    setVar("--line", p.line);
+    setVar("--now", p.now);
+    setVar("--next", p.next);
+    setVar("--on-now", onColor(p.now));
+    setVar("--on-next", onColor(p.next));
+    setVar("color-scheme", isLight(p.bg) ? "light" : "dark");
     applyLookVars();
     if (IN_APP && typeof A.setBars === "function") { try { A.setBars(p.bg); } catch (e) { /* без смуг */ } }
   }
@@ -505,11 +524,10 @@ html.has-glass #glass { display: block; }
   function setInsets(str) {
     const p = String(str || "").split(",").map(Number);
     if (p.length !== 4 || p.some((n) => isNaN(n))) return;
-    const s = document.documentElement.style;
-    s.setProperty("--inset-top", p[0] + "px");
-    s.setProperty("--inset-right", p[1] + "px");
-    s.setProperty("--inset-bottom", p[2] + "px");
-    s.setProperty("--inset-left", p[3] + "px");
+    setVar("--inset-top", p[0] + "px");
+    setVar("--inset-right", p[1] + "px");
+    setVar("--inset-bottom", p[2] + "px");
+    setVar("--inset-left", p[3] + "px");
   }
   if (IN_APP && typeof A.getInsets === "function") { try { setInsets(A.getInsets()); } catch (e) { /* без відступів */ } }
 
@@ -750,11 +768,14 @@ html.has-glass #glass { display: block; }
     }
     cdRows = ev.slice(1).map((e, i) => ({ el: $("countdown").querySelector('[data-cdi="' + i + '"]'), target: e.target }));
   }
+  function countdownExpired(ms) {
+    if (cdMain && cdMain.target <= ms) return true;
+    for (const r of cdRows) if (r.target <= ms) return true;
+    return false;
+  }
   function updateCountdown(ms) {
-    let expired = false;
     if (cdMain) {
       const left = cdMain.target - ms;
-      if (left <= 0) expired = true;
       const p = splitDur(left);
       const units = {
         d: plural(p.d, "день", "дні", "днів"),
@@ -768,12 +789,9 @@ html.has-glass #glass { display: block; }
       }
     }
     for (const r of cdRows) {
-      const left = r.target - ms;
-      if (left <= 0) expired = true;
-      const p = splitDur(left);
+      const p = splitDur(r.target - ms);
       setText(r.el, p.d + " дн. " + pad(p.h) + ":" + pad(p.m) + ":" + pad(p.s));
     }
-    return expired;
   }
 
   /* ---------- Харчування, евакуація, чергування ---------- */
@@ -840,6 +858,37 @@ html.has-glass #glass { display: block; }
   }
 
   /* ---------- Щосекундне оновлення ---------- */
+  // Головний екран закритий налаштуваннями чи редактором фото — його щосекундні числа не видно.
+  function covered() {
+    for (const id of ["sheet", "wsheet", "editor"]) {
+      const el = $(id);
+      if (el && !el.hidden) return true;
+    }
+    return false;
+  }
+  // Які щосекундні числа зараз на екрані (або майже): решту не оновлюємо, поки до них не догорнуть.
+  const seen = { status: true, countdown: true, meal: true };
+  function watchVisibility() {
+    if (!window.IntersectionObserver) return;
+    const names = new Map([[$("status"), "status"], [$("countdown"), "countdown"], [$("mealMine"), "meal"]]);
+    const io = new IntersectionObserver((entries) => {
+      let appeared = false;
+      for (const e of entries) {
+        const k = names.get(e.target);
+        if (e.isIntersecting && !seen[k]) appeared = true;
+        seen[k] = e.isIntersecting;
+      }
+      if (appeared) tick();   // догорнули — одразу свіжі числа
+    }, { rootMargin: "150px 0px" });
+    names.forEach((k, el) => io.observe(el));
+  }
+  // Після закриття налаштувань: оновити числа і, якщо треба, «скло».
+  function afterClose() {
+    if (covered()) return;
+    if (glassDirty) { glassDirty = false; scheduleGlassPath(); }
+    tick();
+  }
+
   let viewDay = 0;   // 0 — автоматично: сьогодні або наступний навчальний день
   let lastDate = "";
   let lastSig = "";
@@ -874,7 +923,7 @@ html.has-glass #glass { display: block; }
       lastSig = sig;
       $("clsBtn").textContent = cls || "Клас";
       // скільки рядків у двох таблицях — щоб вони разом заповнили перший екран
-      document.documentElement.style.setProperty("--rows", String(rows + 2 + Math.max(1, span(shown).last + 1)));
+      setVar("--rows", String(rows + 2 + Math.max(1, span(shown).last + 1)));
       renderBells(st, rows);
       renderStatus(st, info, nextDay);
       renderLegend(st, today);
@@ -892,13 +941,35 @@ html.has-glass #glass { display: block; }
       renderDuty(todayWd);
       scheduleGlassPath();
     }
-    if (leftEl && typeof st.left === "number") setText(leftEl, fmtLeft(st.left));
-    if (updateCountdown(ms)) lastExtra = "";
-    updateMealHint(d, info);
+    if (!covered()) {
+      if (seen.status && leftEl && typeof st.left === "number") setText(leftEl, fmtLeft(st.left));
+      if (seen.countdown) updateCountdown(ms);
+      if (seen.meal) updateMealHint(d, info);
+    }
+    if (countdownExpired(ms)) lastExtra = "";   // канікули почались чи скінчились — наступна секунда перемалює таблиці
   }
 
   /* ---------- Шпалери: показ, обрізка, масштаб і розмиття ---------- */
   let wpImg = null;       // розкодоване фото
+  // Те саме фото, але коротким blob-посиланням: стилі сторінки не тримають у собі мегабайтний текст фото,
+  // а браузер розкодовує його один раз для фону, «скла» і редактора.
+  let wpUrl = "";
+  function photoUrl(data) {
+    try {
+      const i = data.indexOf(",");
+      const type = data.slice(5, i).split(";")[0] || "image/jpeg";
+      const bin = atob(data.slice(i + 1));
+      const bytes = new Uint8Array(bin.length);
+      for (let k = 0; k < bin.length; k++) bytes[k] = bin.charCodeAt(k);
+      return URL.createObjectURL(new Blob([bytes], { type: type }));
+    } catch (e) {
+      return data;
+    }
+  }
+  function dropUrl(url) {
+    // старе посилання прибираємо із запасом часу, щоб усі елементи встигли перейти на нове
+    if (url && url.indexOf("blob:") === 0) setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) { /* уже немає */ } }, 5000);
+  }
   let wpVersion = 0;      // змінюється разом із самим фото
   let blurUrl = "";       // заздалегідь розмите фото під поточний розмір екрана
   let blurKey = "";
@@ -923,7 +994,7 @@ html.has-glass #glass { display: block; }
   }
   function sharpBg(el, crop) {
     const L = coverLayout(el.clientWidth, el.clientHeight, crop);
-    setBg(el, wpData, L ? L.dw + "px " + L.dh + "px" : "cover", L ? L.x + "px " + L.y + "px" : "center");
+    setBg(el, wpUrl, L ? L.dw + "px " + L.dh + "px" : "cover", L ? L.x + "px " + L.y + "px" : "center");
   }
   // Розмиття малюється один раз у зменшеному вигляді, а екран його лише розтягує.
   function makeBlurred(draft) {
@@ -988,7 +1059,9 @@ html.has-glass #glass { display: block; }
     if (g._clip !== v) { g._clip = v; g.style.clipPath = v; }
   }
   let glassFrame = 0;
+  let glassDirty = false;
   function scheduleGlassPath() {
+    if (covered()) { glassDirty = true; return; }   // перерахуємо, коли головний екран знову відкриють
     if (glassFrame) return;
     glassFrame = requestAnimationFrame(() => { glassFrame = 0; updateGlassPath(); });
   }
@@ -1039,9 +1112,12 @@ html.has-glass #glass { display: block; }
     document.documentElement.classList.remove("has-glass");
     applyLookVars();
     el.classList.remove("ready");
+    const oldUrl = wpUrl;
+    wpUrl = wpData ? photoUrl(wpData) : "";
     if (!wpData) {
       el.hidden = true;
       setBg(el, "", "", "");
+      dropUrl(oldUrl);
       return Promise.resolve();
     }
     el.hidden = false;
@@ -1054,11 +1130,21 @@ html.has-glass #glass { display: block; }
           wpSize = { w: img.naturalWidth, h: img.naturalHeight };
           paintWallpaper(false);
           el.classList.add("ready");   // плавна поява, без стрибка кадрування
+          dropUrl(oldUrl);
         }
         resolve();
       };
-      img.onerror = () => resolve();
-      img.src = src;
+      img.onerror = () => {
+        // blob-посилання не відкрилось — показуємо фото як є
+        if (src === wpData && wpUrl !== wpData) {
+          dropUrl(wpUrl);
+          wpUrl = wpData;
+          img.src = wpData;
+        } else {
+          resolve();
+        }
+      };
+      img.src = wpUrl;
     });
   }
   // Зменшуємо фото до 2400 px по довшій стороні: вистачає для збільшення і швидко відкривається.
@@ -1114,7 +1200,7 @@ html.has-glass #glass { display: block; }
     if (!wpData || !wpSize) return;
     edCrop = Object.assign({}, wpCrop);
     const pic = $("edPic");
-    if (pic._src !== wpData) { pic._src = wpData; pic.src = wpData; }
+    if (pic._src !== wpUrl) { pic._src = wpUrl; pic.src = wpUrl; }
     pic.style.width = wpSize.w + "px";
     pic.style.height = wpSize.h + "px";
     $("editor").hidden = false;
@@ -1129,6 +1215,7 @@ html.has-glass #glass { display: block; }
     }
     touches.clear();
     $("editor").hidden = true;
+    afterClose();
   }
   function layoutEditor() {
     const el = $("edImg");
@@ -1335,6 +1422,7 @@ html.has-glass #glass { display: block; }
   function closeSheet() {
     $("sheet").hidden = true;
     sheetMode = "";
+    afterClose();
   }
 
   /* ---------- Віджети на робочому столі (лише в Android-застосунку) ---------- */
@@ -1402,22 +1490,38 @@ html.has-glass #glass { display: block; }
       $(id + "V").textContent = v + "%";
     }
     $("wApplyAll").hidden = widgets.length < 2;
-    wPreview();
+    wPreview(wPrevFor !== w.id);
+    wPrevFor = w.id;
   }
+  let wPrevFor = 0;   // для якого віджета останнє прев’ю
   // Прев’ю малює сам застосунок тим самим кодом, що й віджет, — тож воно точне.
+  // Малює у фоні: сторінка не чекає, а коли картинка готова, приходить onWidgetPreviewReady.
   let wPrevTimer = 0;
-  function wPreview() {
+  function wPreview(otherWidget) {
+    const img = $("wPrevImg");
+    if (otherWidget) {
+      // інший віджет: старе прев’ю притінюємо, поки малюється нове
+      if (img.getAttribute("src")) img.classList.add("stale");
+      else img.hidden = true;
+    }
     if (wPrevTimer) return;
     wPrevTimer = setTimeout(() => {
       wPrevTimer = 0;
       const w = curW();
       if (!w) return;
-      let url = "";
-      try { url = A.widgetPreview(w.id, JSON.stringify(w.cfg)) || ""; } catch (e) { url = ""; }
-      $("wPrevImg").src = url;
-      $("wPrevImg").hidden = !url;
-    }, 60);
+      try { A.requestWidgetPreview(w.id, JSON.stringify(w.cfg)); } catch (e) { /* старий застосунок */ }
+    }, 40);
   }
+  window.onWidgetPreviewReady = (id) => {
+    if (!wOpen || id !== wSel) return;
+    let url = "";
+    try { url = A.takeWidgetPreview() || ""; } catch (e) { url = ""; }
+    if (!url) return;
+    const img = $("wPrevImg");
+    img.src = url;
+    img.hidden = false;
+    img.classList.remove("stale");
+  };
   function saveW() {
     const w = curW();
     if (!w) return;
@@ -1426,6 +1530,7 @@ html.has-glass #glass { display: block; }
   function openWidgets() {
     loadWidgets();
     wOpen = true;
+    wPrevFor = 0;
     setWNote("wNote", "");
     setWNote("wAddNote", "");
     $("wsheet").hidden = false;
@@ -1435,6 +1540,7 @@ html.has-glass #glass { display: block; }
   function closeWidgets() {
     wOpen = false;
     $("wsheet").hidden = true;
+    afterClose();
   }
   async function onWidgetPhoto(input) {
     const file = input.files && input.files[0];
@@ -1646,6 +1752,7 @@ html.has-glass #glass { display: block; }
       resizeTimer = setTimeout(layoutWallpaper, 120);
     });
     setupEditor();
+    watchVisibility();
     if (window.ResizeObserver) new ResizeObserver(scheduleGlassPath).observe($("app"));
     showWallpaper();
     tick();

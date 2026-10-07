@@ -40,11 +40,21 @@ final class ScheduleData {
         }
     }
 
+    /** Об’єкт після «ROZKLAD_DATA =» у data.js; коментарі й крапка з комою навколо нього не заважають. */
     @SuppressWarnings("unchecked")
     static ScheduleData parse(String js) {
-        int start = js.indexOf('{', Math.max(0, js.indexOf("ROZKLAD_DATA")));
-        int end = js.lastIndexOf('}');
-        return new ScheduleData((Map<String, Object>) Json.parse(js.substring(start, end + 1)));
+        int at = -1;
+        for (int k = js.indexOf("ROZKLAD_DATA"); k >= 0; k = js.indexOf("ROZKLAD_DATA", k + 1)) {
+            int e = k + "ROZKLAD_DATA".length();
+            while (e < js.length() && Character.isWhitespace(js.charAt(e))) e++;
+            if (e < js.length() && js.charAt(e) == '=') {
+                at = e + 1;
+                break;
+            }
+        }
+        int start = js.indexOf('{', Math.max(0, at));
+        if (start < 0) throw new IllegalArgumentException("data.js: не знайдено даних розкладу");
+        return new ScheduleData((Map<String, Object>) Json.parseAt(js, start));
     }
 
     @SuppressWarnings("unchecked")

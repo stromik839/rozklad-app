@@ -4,6 +4,7 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProviderInfo;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -13,19 +14,53 @@ import android.graphics.BitmapFactory;
 import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Process;
 import android.util.Base64;
 import android.util.DisplayMetrics;
 import android.widget.RemoteViews;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Оновлення віджетів: малює картинки, віддає їх на робочий стіл і ставить будильник на наступний дзвоник. */
+/**
+ * Оновлення віджетів: малює картинки, віддає їх на робочий стіл і ставить будильник на наступний дзвоник.
+ * Уся робота йде у фонових потоках, тож застосунок і робочий стіл не гальмують.
+ */
 final class WidgetUpdater {
 
     static final Class<?>[] PROVIDERS = {BellsWidget.class, LessonsWidget.class, BothWidget.class};
     static final String[] KINDS = {"bells", "lessons", "both"};
+
+    /** Віджети малюються по черзі в одному потоці з низьким пріоритетом — не заважають екрану. */
+    private static final ExecutorService WORKER =
+            Executors.newSingleThreadExecutor(r -> thread(r, "rozklad-widgets", Process.THREAD_PRIORITY_BACKGROUND));
+    /** Прев’ю в налаштуваннях — окремий потік, щоб не чекати, поки оновляться всі віджети. */
+    private static final ExecutorService PREVIEW =
+            Executors.newSingleThreadExecutor(r -> thread(r, "rozklad-preview", Process.THREAD_PRIORITY_DEFAULT));
+
+    private static Thread thread(Runnable r, String name, int priority) {
+        Thread t = new Thread(() -> {
+            Process.setThreadPriority(priority);
+            r.run();
+        }, name);
+        t.setDaemon(true);
+        return t;
+    }
+
+    /** Що зараз намальовано на кожному віджеті: якщо нове те саме — не перемальовуємо. */
+    private static final Map<Integer, String> DRAWN = new ConcurrentHashMap<>();
+    private static final AtomicBoolean ALL_QUEUED = new AtomicBoolean();
+    private static final Set<Integer> QUEUED = Collections.newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
 
     private static Typeface typeface;
 
@@ -50,6 +85,11 @@ final class WidgetUpdater {
         return all;
     }
 
+    /** Чи це справді наш віджет на робочому столі (а не випадковий чи чужий номер). */
+    static boolean owns(Context ctx, int id) {
+        return Arrays.binarySearch(allIds(ctx), id) >= 0;
+    }
+
     /** Що показує віджет за замовчуванням — залежить від того, який із трьох віджетів додали. */
     static String kindOf(Context ctx, int id) {
         AppWidgetProviderInfo info = AppWidgetManager.getInstance(ctx).getAppWidgetInfo(id);
@@ -59,13 +99,66 @@ final class WidgetUpdater {
         return "both";
     }
 
+    /* ---------------- запуск у фоні ---------------- */
+
+    /** Виконати у фоновому потоці віджетів; done (з goAsync) завершується, коли робота скінчиться. */
+    static void runInBackground(Runnable task, BroadcastReceiver.PendingResult done) {
+        WORKER.execute(() -> {
+            try {
+                task.run();
+            } catch (Throwable t) {
+                // помилка в одному завданні не повинна зупиняти наступні
+            } finally {
+                if (done != null) done.finish();
+            }
+        });
+    }
+
+    /** Оновити всі віджети у фоні; кілька запитів поспіль зливаються в одне оновлення. */
+    static void requestAll(Context ctx) {
+        final Context app = ctx.getApplicationContext();
+        if (!ALL_QUEUED.compareAndSet(false, true)) return;
+        WORKER.execute(() -> {
+            ALL_QUEUED.set(false);   // зміни, що прийдуть під час малювання, запланують ще одне
+            try {
+                updateAll(app);
+            } catch (Throwable t) {
+                // наступний запит спробує ще раз
+            }
+        });
+    }
+
+    /** Перемалювати один віджет після зміни його налаштувань і прибрати фото, яких більше ніхто не використовує. */
+    static void requestOne(Context ctx, final int id) {
+        final Context app = ctx.getApplicationContext();
+        if (!QUEUED.add(id)) return;
+        WORKER.execute(() -> {
+            QUEUED.remove(id);
+            try {
+                update(app, new int[] {id});
+                Store.cleanupWidgetPhotos(app);
+            } catch (Throwable t) {
+                // наступний запит спробує ще раз
+            }
+        });
+    }
+
+    /** Віджети видалили — забуваємо, що на них було намальовано. */
+    static void forget(int[] ids) {
+        for (int id : ids) DRAWN.remove(id);
+    }
+
+    /* ---------------- оновлення ---------------- */
+
     static void updateAll(Context ctx) {
         update(ctx, allIds(ctx));
         scheduleNext(ctx);
     }
 
     static void update(Context ctx, int[] ids) {
+        int[] mine = allIds(ctx);
         for (int id : ids) {
+            if (Arrays.binarySearch(mine, id) < 0) continue;   // не наш або вже видалений віджет
             try {
                 updateOne(ctx, id);
             } catch (Throwable t) {
@@ -79,13 +172,19 @@ final class WidgetUpdater {
         WidgetConfig cfg = WidgetConfig.load(ctx, id, kindOf(ctx, id));
         boolean two = "system".equals(cfg.theme);
         Size s = size(ctx, m, id, maxPixels(ctx, two));
+        String cls = currentClass(ctx);
+        Calendar now = Calendar.getInstance();
+        String sig = signature(ctx, cfg, cls, s, now);
+        if (sig.equals(DRAWN.get(id))) return;   // на віджеті вже саме це
+
+        Bitmap photo = "photo".equals(cfg.bg) ? loadPhoto(ctx, cfg, s) : null;
         Bitmap day, night;
         if (two) {
             // Обидва варіанти: робочий стіл сам покаже потрібний, коли телефон перемкне тему.
-            day = render(ctx, cfg, false, s);
-            night = render(ctx, cfg, true, s);
+            day = render(ctx, cfg, cls, false, s, photo, now);
+            night = render(ctx, cfg, cls, true, s, photo, now);
         } else {
-            day = night = render(ctx, cfg, "dark".equals(cfg.theme), s);
+            day = night = render(ctx, cfg, cls, "dark".equals(cfg.theme), s, photo, now);
         }
         RemoteViews rv = new RemoteViews(ctx.getPackageName(), R.layout.widget);
         rv.setImageViewBitmap(R.id.img_day, day);
@@ -93,6 +192,29 @@ final class WidgetUpdater {
         rv.setContentDescription(R.id.widget_root, ctx.getString(R.string.app_name));
         rv.setOnClickPendingIntent(R.id.widget_root, openApp(ctx));
         m.updateAppWidget(id, rv);
+        DRAWN.put(id, sig);
+    }
+
+    /** Усе, від чого залежить картинка віджета: налаштування, розмір, клас, зміст таблиці, фото. */
+    private static String signature(Context ctx, WidgetConfig cfg, String cls, Size s, Calendar now) {
+        StringBuilder b = new StringBuilder(cfg.toJson())
+                .append('|').append(s.w).append('x').append(s.h).append('@').append(s.dp)
+                .append('|').append(cls);
+        try {
+            b.append('|').append(WidgetRenderer.signature(ScheduleData.get(ctx.getAssets()), cfg, cls, now));
+        } catch (Exception e) {
+            b.append("|error");
+        }
+        if ("photo".equals(cfg.bg)) {
+            File f = photoFile(ctx, cfg);
+            b.append('|').append(f == null ? "-" : f.getName() + ":" + f.lastModified() + ":" + f.length());
+        }
+        return b.toString();
+    }
+
+    static String currentClass(Context ctx) {
+        String cls = ctx.getSharedPreferences(Store.PREFS, Context.MODE_PRIVATE).getString("cls", null);
+        return cls == null || cls.isEmpty() ? null : cls;
     }
 
     /**
@@ -131,21 +253,11 @@ final class WidgetUpdater {
         return s;
     }
 
-    static boolean isDark(Context ctx, WidgetConfig cfg) {
-        if ("dark".equals(cfg.theme)) return true;
-        if ("light".equals(cfg.theme)) return false;
-        int night = ctx.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
-        return night == Configuration.UI_MODE_NIGHT_YES;
-    }
-
-    static Bitmap render(Context ctx, WidgetConfig cfg, boolean dark, Size s) {
+    static Bitmap render(Context ctx, WidgetConfig cfg, String cls, boolean dark, Size s, Bitmap photo, Calendar now) {
         Typeface tf = typeface(ctx);
         try {
             ScheduleData d = ScheduleData.get(ctx.getAssets());
-            String cls = ctx.getSharedPreferences(Store.PREFS, Context.MODE_PRIVATE).getString("cls", null);
-            if (cls != null && cls.isEmpty()) cls = null;
-            Bitmap photo = "photo".equals(cfg.bg) ? loadPhoto(ctx, cfg, s) : null;
-            return WidgetRenderer.render(d, cfg, cls, dark, tf, photo, s.w, s.h, s.dp, Calendar.getInstance());
+            return WidgetRenderer.render(d, cfg, cls, dark, tf, photo, s.w, s.h, s.dp, now);
         } catch (Exception e) {
             return WidgetRenderer.message("Не вдалося прочитати розклад", dark, tf, s.w, s.h, s.dp);
         }
@@ -154,7 +266,7 @@ final class WidgetUpdater {
     private static synchronized Typeface typeface(Context ctx) {
         if (typeface == null) {
             try {
-                typeface = Typeface.createFromAsset(ctx.getAssets(), "fonts/LiberationSerif-Bold.ttf");
+                typeface = Typeface.createFromAsset(ctx.getAssets(), "fonts/RozkladSerif-Bold.ttf");
             } catch (RuntimeException e) {
                 typeface = Typeface.DEFAULT_BOLD;
             }
@@ -162,10 +274,38 @@ final class WidgetUpdater {
         return typeface;
     }
 
-    /** Фото для фону: своє фото віджета або шпалери застосунку, зменшене під розмір віджета. */
+    /* ---------------- фото для фону ---------------- */
+
+    /** Своє фото віджета, а якщо його немає — шпалери застосунку. */
+    private static File photoFile(Context ctx, WidgetConfig cfg) {
+        if (!"app".equals(cfg.photo)) {
+            File own = Store.bigFile(ctx, "wph_" + cfg.photo);
+            if (own.isFile()) return own;
+        }
+        File app = Store.bigFile(ctx, "wallpaper");
+        return app.isFile() ? app : null;
+    }
+
+    /** Кілька останніх розкодованих фото: не читати й не розкодовувати те саме фото щоразу. */
+    private static final Map<String, Bitmap> PHOTOS = new LinkedHashMap<String, Bitmap>(4, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Bitmap> eldest) {
+            return size() > 2;
+        }
+    };
+
+    /** Фото, зменшене під розмір віджета: для чіткого фону — не менше за віджет, для розмитого — половина. */
     private static Bitmap loadPhoto(Context ctx, WidgetConfig cfg, Size s) {
-        String data = Store.readBig(ctx, "app".equals(cfg.photo) ? "wallpaper" : "wph_" + cfg.photo);
-        if (data.isEmpty() && !"app".equals(cfg.photo)) data = Store.readBig(ctx, "wallpaper");
+        File f = photoFile(ctx, cfg);
+        if (f == null) return null;
+        int div = cfg.blur > 0 ? 2 : 1;
+        int tw = Math.max(1, s.w / div), th = Math.max(1, s.h / div);
+        String key = f.getPath() + ":" + f.lastModified() + ":" + f.length() + ":" + tw + "x" + th;
+        synchronized (PHOTOS) {
+            Bitmap hit = PHOTOS.get(key);
+            if (hit != null) return hit;
+        }
+        String data = Store.readFile(f);
         int comma = data.indexOf(',');
         if (comma < 0) return null;
         byte[] bytes = Base64.decode(data.substring(comma + 1), Base64.DEFAULT);
@@ -173,11 +313,16 @@ final class WidgetUpdater {
         bounds.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
         int sample = 1;
-        int tw = Math.max(1, s.w / 2), th = Math.max(1, s.h / 2);
         while (bounds.outWidth / (sample * 2) >= tw && bounds.outHeight / (sample * 2) >= th) sample *= 2;
         BitmapFactory.Options opts = new BitmapFactory.Options();
         opts.inSampleSize = sample;
-        return BitmapFactory.decodeByteArray(bytes, 0, bytes.length, opts);
+        Bitmap b = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, opts);
+        if (b != null) {
+            synchronized (PHOTOS) {
+                PHOTOS.put(key, b);
+            }
+        }
+        return b;
     }
 
     private static PendingIntent openApp(Context ctx) {
@@ -215,15 +360,21 @@ final class WidgetUpdater {
         }
     }
 
-    /** Найближчий початок чи кінець уроку, або початок наступної доби. */
+    /**
+     * Найближчий початок чи кінець уроку, або початок наступної доби.
+     * У вихідні й канікули підсвітка за день не змінюється — тоді одразу до півночі.
+     */
     static long nextBoundary(Context ctx, long nowMs) {
         Calendar c = Calendar.getInstance();
         c.setTimeInMillis(nowMs);
         int now = c.get(Calendar.HOUR_OF_DAY) * 3600 + c.get(Calendar.MINUTE) * 60 + c.get(Calendar.SECOND);
         int best = Integer.MAX_VALUE;
         try {
-            for (int[] b : ScheduleData.get(ctx.getAssets()).bells) {
-                for (int edge : new int[] {b[0] * 60, b[1] * 60}) if (edge > now && edge < best) best = edge;
+            ScheduleData d = ScheduleData.get(ctx.getAssets());
+            if (d.dayInfo(c).school) {
+                for (int[] b : d.bells) {
+                    for (int edge : new int[] {b[0] * 60, b[1] * 60}) if (edge > now && edge < best) best = edge;
+                }
             }
         } catch (Exception e) {
             // без даних — оновимось опівночі
@@ -258,14 +409,76 @@ final class WidgetUpdater {
         return b.append(']').toString();
     }
 
-    /** Прев’ю віджета з ще не збереженими налаштуваннями — для екрана налаштувань. */
-    static String previewDataUrl(Context ctx, int id, String json) {
+    /** Кому сказати, що прев’ю готове (сторінці застосунку). */
+    interface PreviewReady {
+        void ready(int id);
+    }
+
+    private static final Object PV_LOCK = new Object();
+    private static int pvId;
+    private static String pvJson;           // запит, що чекає; null — немає
+    private static boolean pvDark;
+    private static PreviewReady pvCallback;
+    private static boolean pvBusy;
+    private static volatile String pvResult = "";
+
+    /**
+     * Намалювати прев’ю у фоні. Поки малюється одне, нові запити не стають у чергу —
+     * береться лише найсвіжіший (повзунок тягнуть — проміжні значення пропускаються).
+     */
+    static void requestPreview(Context ctx, int id, String json, boolean systemDark, PreviewReady callback) {
+        final Context app = ctx.getApplicationContext();
+        synchronized (PV_LOCK) {
+            pvId = id;
+            pvJson = json;
+            pvDark = systemDark;
+            pvCallback = callback;
+            if (pvBusy) return;
+            pvBusy = true;
+        }
+        PREVIEW.execute(() -> {
+            while (true) {
+                int id1;
+                String json1;
+                boolean dark1;
+                PreviewReady cb1;
+                synchronized (PV_LOCK) {
+                    if (pvJson == null) {
+                        pvBusy = false;
+                        return;
+                    }
+                    id1 = pvId;
+                    json1 = pvJson;
+                    dark1 = pvDark;
+                    cb1 = pvCallback;
+                    pvJson = null;
+                }
+                pvResult = previewDataUrl(app, id1, json1, dark1);
+                try {
+                    cb1.ready(id1);
+                } catch (Throwable t) {
+                    // сторінки вже немає — не страшно
+                }
+            }
+        });
+    }
+
+    /** Останнє готове прев’ю (картинка data:image/png). */
+    static String takePreview() {
+        return pvResult;
+    }
+
+    /** Прев’ю віджета з ще не збереженими налаштуваннями — тим самим кодом, що й сам віджет. */
+    static String previewDataUrl(Context ctx, int id, String json, boolean systemDark) {
         try {
+            if (!owns(ctx, id)) return "";
             AppWidgetManager m = AppWidgetManager.getInstance(ctx);
             WidgetConfig cfg = WidgetConfig.fromJson(json, kindOf(ctx, id));
             Size s = size(ctx, m, id, 350_000);
-            Bitmap b = render(ctx, cfg, isDark(ctx, cfg), s);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            boolean dark = "dark".equals(cfg.theme) || ("system".equals(cfg.theme) && systemDark);
+            Bitmap photo = "photo".equals(cfg.bg) ? loadPhoto(ctx, cfg, s) : null;
+            Bitmap b = render(ctx, cfg, currentClass(ctx), dark, s, photo, Calendar.getInstance());
+            ByteArrayOutputStream out = new ByteArrayOutputStream(256 * 1024);
             b.compress(Bitmap.CompressFormat.PNG, 100, out);
             return "data:image/png;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP);
         } catch (Throwable t) {

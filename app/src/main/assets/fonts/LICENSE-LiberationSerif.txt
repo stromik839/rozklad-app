@@ -1,3 +1,10 @@
+RozkladSerif-Bold.ttf — змінена версія шрифту Liberation Serif Bold 2.1.5:
+лишено тільки латиницю, кирилицю й розділові знаки, а шрифт перейменовано на
+«Rozklad Serif», бо назва «Liberation» зарезервована (Reserved Font Name) за
+умовами SIL Open Font License 1.1. Копірайт і текст ліцензії оригіналу — нижче.
+
+----------------------------------------------------------------------------
+
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Liberation Fonts
 Source: https://github.com/liberationfonts

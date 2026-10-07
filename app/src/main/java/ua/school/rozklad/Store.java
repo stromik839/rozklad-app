@@ -25,7 +25,10 @@ final class Store {
     }
 
     static String readBig(Context ctx, String key) {
-        File f = bigFile(ctx, key);
+        return readFile(bigFile(ctx, key));
+    }
+
+    static String readFile(File f) {
         if (!f.isFile()) return "";
         byte[] buf = new byte[(int) f.length()];
         try (FileInputStream in = new FileInputStream(f)) {

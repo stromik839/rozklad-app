@@ -30,7 +30,7 @@ import android.widget.FrameLayout;
  * Показує розклад з assets/index.html: передає сторінці системну тему і відступи
  * під системні смуги, зберігає налаштування, відкриває галерею для шпалер
  * і дає сторінці керувати віджетами на робочому столі.
- * Дозволів застосунку не потрібно: фото вибирається через системний вибір фото.
+ * Фото вибирається через системний вибір фото, тож доступу до файлів застосунок не просить.
  */
 public class MainActivity extends Activity {
 
@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        prefs = getSharedPreferences("rozklad", MODE_PRIVATE);
+        prefs = getSharedPreferences(Store.PREFS, MODE_PRIVATE);
         systemDark = isNight(getResources().getConfiguration());
 
         root = new FrameLayout(this);
@@ -63,6 +63,8 @@ public class MainActivity extends Activity {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
+        // Сторінці не потрібні файли телефону (assets відкриваються й так) — закриваємо явно.
+        s.setAllowFileAccess(false);
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
@@ -149,9 +151,15 @@ public class MainActivity extends Activity {
         });
     }
 
+    private int barsColor;
+    private boolean barsSet;
+
     /** Фон під сторінкою і колір іконок у рядку стану під вибраний колір фону. */
     private void applyBars(int bg) {
         if (root == null) return;
+        if (barsSet && barsColor == bg) return;   // той самий колір — вікно не перемальовуємо
+        barsSet = true;
+        barsColor = bg;
         boolean light = isLight(bg);
         root.setBackgroundColor(bg);
         if (web != null) web.setBackgroundColor(bg);
@@ -245,13 +253,12 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        // Віджети тут не перемальовуємо: кожна зміна (клас, шпалери, налаштування віджета)
+        // і так оновлює їх одразу, а перемальовування на виході гальмувало перехід на робочий стіл.
         if (web != null) {
             web.onPause();
             web.pauseTimers();
         }
-        // виходимо із застосунку — віджети підхоплюють свіжі налаштування
-        final Context app = getApplicationContext();
-        new Thread(() -> WidgetUpdater.updateAll(app)).start();
         super.onPause();
     }
 
@@ -318,16 +325,28 @@ public class MainActivity extends Activity {
             return WidgetUpdater.listJson(MainActivity.this);
         }
 
+        /** Зберігає одразу, а перемальовує віджет у фоні — сторінка не чекає. */
         @JavascriptInterface
         public void setWidgetConfig(int id, String json) {
-            WidgetConfig.save(MainActivity.this, id, json, WidgetUpdater.kindOf(MainActivity.this, id));
-            WidgetUpdater.update(MainActivity.this, new int[] {id});
-            Store.cleanupWidgetPhotos(MainActivity.this);
+            Context app = getApplicationContext();
+            if (!WidgetUpdater.owns(app, id)) return;
+            WidgetConfig.save(app, id, json, WidgetUpdater.kindOf(app, id));
+            WidgetUpdater.requestOne(app, id);
+        }
+
+        /** Прев’ю малюється у фоні; коли готове — сторінка отримує onWidgetPreviewReady(id). */
+        @JavascriptInterface
+        public void requestWidgetPreview(int id, String json) {
+            WidgetUpdater.requestPreview(getApplicationContext(), id, json, systemDark, readyId -> runOnUiThread(() -> {
+                if (web != null) {
+                    web.evaluateJavascript("window.onWidgetPreviewReady && window.onWidgetPreviewReady(" + readyId + ")", null);
+                }
+            }));
         }
 
         @JavascriptInterface
-        public String widgetPreview(int id, String json) {
-            return WidgetUpdater.previewDataUrl(MainActivity.this, id, json);
+        public String takeWidgetPreview() {
+            return WidgetUpdater.takePreview();
         }
 
         /** Попросити робочий стіл додати віджет (Android 8+, якщо робочий стіл це вміє). */
@@ -341,7 +360,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void refreshWidgets() {
-            WidgetUpdater.updateAll(MainActivity.this);
+            WidgetUpdater.requestAll(MainActivity.this);
         }
 
         @JavascriptInterface

@@ -5,7 +5,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Невеликий розбір JSON без сторонніх бібліотек: об’єкти, масиви, рядки, числа, true/false/null. */
+/**
+ * Розбір JSON без сторонніх бібліотек: об’єкти, масиви, рядки, числа, true/false/null.
+ * Навмисно поблажливий — приймає те саме, що JavaScript у data.js: коментарі // і /* ... *&#47;,
+ * кому після останнього елемента, рядки в 'одинарних' лапках і назви полів без лапок.
+ * Тож якщо розклад відкривається в застосунку, його прочитає й віджет.
+ */
 final class Json {
 
     private final String s;
@@ -15,6 +20,7 @@ final class Json {
         this.s = s;
     }
 
+    /** Увесь текст — одне значення. */
     static Object parse(String text) {
         Json p = new Json(text);
         p.ws();
@@ -22,6 +28,14 @@ final class Json {
         p.ws();
         if (p.i != p.s.length()) throw new IllegalArgumentException("JSON: зайві символи, позиція " + p.i);
         return v;
+    }
+
+    /** Значення, що починається з позиції start; усе, що після нього (крапка з комою, коментарі), пропускається. */
+    static Object parseAt(String text, int start) {
+        Json p = new Json(text);
+        p.i = start;
+        p.ws();
+        return p.value();
     }
 
     /** Рядок у лапках для запису в JSON. */
@@ -36,8 +50,30 @@ final class Json {
         return b.append('"').toString();
     }
 
+    /** Пробіли, переноси і коментарі. */
     private void ws() {
-        while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
+        while (i < s.length()) {
+            char c = s.charAt(i);
+            if (Character.isWhitespace(c) || c == '﻿') {
+                i++;
+                continue;
+            }
+            if (c == '/' && i + 1 < s.length()) {
+                char n = s.charAt(i + 1);
+                if (n == '/') {
+                    int e = s.indexOf('\n', i);
+                    i = e < 0 ? s.length() : e + 1;
+                    continue;
+                }
+                if (n == '*') {
+                    int e = s.indexOf("*/", i + 2);
+                    if (e < 0) throw new IllegalArgumentException("JSON: незакритий коментар, позиція " + i);
+                    i = e + 2;
+                    continue;
+                }
+            }
+            return;
+        }
     }
 
     private char peek() {
@@ -49,7 +85,7 @@ final class Json {
         char c = peek();
         if (c == '{') return object();
         if (c == '[') return array();
-        if (c == '"') return string();
+        if (c == '"' || c == '\'') return string();
         if (s.startsWith("true", i)) { i += 4; return Boolean.TRUE; }
         if (s.startsWith("false", i)) { i += 5; return Boolean.FALSE; }
         if (s.startsWith("null", i)) { i += 4; return null; }
@@ -59,11 +95,10 @@ final class Json {
     private Map<String, Object> object() {
         Map<String, Object> m = new LinkedHashMap<>();
         i++;
-        ws();
-        if (peek() == '}') { i++; return m; }
         while (true) {
             ws();
-            String k = string();
+            if (peek() == '}') { i++; return m; }   // порожній об’єкт або кома після останнього поля
+            String k = key();
             ws();
             expect(':');
             ws();
@@ -76,13 +111,26 @@ final class Json {
         }
     }
 
+    /** Назва поля: у лапках або без них, як дозволяє JavaScript. */
+    private String key() {
+        char c = peek();
+        if (c == '"' || c == '\'') return string();
+        int st = i;
+        while (i < s.length()) {
+            char k = s.charAt(i);
+            if (!Character.isLetterOrDigit(k) && k != '_' && k != '$') break;
+            i++;
+        }
+        if (st == i) throw new IllegalArgumentException("JSON: очікувалась назва поля, позиція " + i);
+        return s.substring(st, i);
+    }
+
     private List<Object> array() {
         List<Object> a = new ArrayList<>();
         i++;
-        ws();
-        if (peek() == ']') { i++; return a; }
         while (true) {
             ws();
+            if (peek() == ']') { i++; return a; }   // порожній масив або кома після останнього елемента
             a.add(value());
             ws();
             char c = peek();
@@ -93,12 +141,13 @@ final class Json {
     }
 
     private String string() {
-        expect('"');
+        char q = peek();
+        i++;
         StringBuilder b = new StringBuilder();
         while (true) {
             char c = peek();
             i++;
-            if (c == '"') return b.toString();
+            if (c == q) return b.toString();
             if (c != '\\') { b.append(c); continue; }
             char e = peek();
             i++;
@@ -109,10 +158,11 @@ final class Json {
                 case 'b': b.append('\b'); break;
                 case 'f': b.append('\f'); break;
                 case 'u':
+                    if (i + 4 > s.length()) throw new IllegalArgumentException("JSON: обірваний \\u, позиція " + i);
                     b.append((char) Integer.parseInt(s.substring(i, i + 4), 16));
                     i += 4;
                     break;
-                default: b.append(e);
+                default: b.append(e);   // \" \' \\ \/ та інші — сам символ
             }
         }
     }

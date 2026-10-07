@@ -76,14 +76,17 @@ final class WidgetConfig {
         return fromJson(prefs(ctx).getString("widget_" + id, null), kind);
     }
 
+    /**
+     * apply() одразу змінює налаштування в пам’яті (їх бачить і віджет, і прибирання фото),
+     * а на диск записує у фоні — тож натискання в налаштуваннях не чекає на запис.
+     */
     static void save(Context ctx, int id, String json, String kind) {
-        // commit, а не apply: одразу після збереження прибираємо фото, яких більше ніхто не використовує
-        prefs(ctx).edit().putString("widget_" + id, fromJson(json, kind).toJson()).commit();
+        prefs(ctx).edit().putString("widget_" + id, fromJson(json, kind).toJson()).apply();
     }
 
     static void delete(Context ctx, int[] ids) {
         SharedPreferences.Editor e = prefs(ctx).edit();
         for (int id : ids) e.remove("widget_" + id);
-        e.commit();
+        e.apply();
     }
 }

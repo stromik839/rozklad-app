@@ -48,6 +48,22 @@ final class WidgetRenderer {
         return bmp;
     }
 
+    /**
+     * Короткий опис того, що буде на віджеті (заголовок, рядок «що зараз», таблиця, підсвітка).
+     * Якщо він не змінився, віджет можна не перемальовувати.
+     */
+    static String signature(ScheduleData d, WidgetConfig cfg, String cls, Calendar now) {
+        Model m = model(d, cfg, cls, now);
+        StringBuilder b = new StringBuilder(m.title).append('|').append(m.status);
+        for (int r = 0; r < m.rows.size(); r++) {
+            b.append('|');
+            for (String cell : m.rows.get(r)) b.append(cell).append(';');
+            b.append('#').append(Integer.toHexString(m.rowColor.get(r)));
+        }
+        b.append('|').append(m.cellRow).append(',').append(m.cellCol).append(',').append(Integer.toHexString(m.cellColor));
+        return b.toString();
+    }
+
     /** Запасна картинка з повідомленням, якщо дані не прочитались. */
     static Bitmap message(String text, boolean dark, Typeface tf, int w, int h, float dp) {
         Bitmap bmp = Bitmap.createBitmap(Math.max(1, w), Math.max(1, h), Bitmap.Config.ARGB_8888);
@@ -364,8 +380,27 @@ final class WidgetRenderer {
         c.restore();
     }
 
+    // Останній розмитий фон: поки рухають повзунки кутів, прозорості чи тексту, фото не розмивається заново.
+    private static Bitmap blurSrc;
+    private static String blurKey;
+    private static Bitmap blurOut;
+
     /** Фото, обрізане під розмір віджета і розмите (у зменшеному вигляді — так швидше). */
     static Bitmap blurCover(Bitmap src, int w, int h, int blurPct, float dp) {
+        String key = w + "x" + h + ":" + blurPct + ":" + dp;
+        synchronized (WidgetRenderer.class) {
+            if (src == blurSrc && key.equals(blurKey)) return blurOut;
+        }
+        Bitmap out = blurCoverUncached(src, w, h, blurPct, dp);
+        synchronized (WidgetRenderer.class) {
+            blurSrc = src;
+            blurKey = key;
+            blurOut = out;
+        }
+        return out;
+    }
+
+    private static Bitmap blurCoverUncached(Bitmap src, int w, int h, int blurPct, float dp) {
         float k = blurPct > 0 ? 0.25f : 1f;
         int sw = Math.max(1, Math.round(w * k));
         int sh = Math.max(1, Math.round(h * k));
