@@ -201,7 +201,9 @@ final class WidgetUpdater {
                 .append('|').append(s.w).append('x').append(s.h).append('@').append(s.dp)
                 .append('|').append(cls);
         try {
-            b.append('|').append(WidgetRenderer.signature(ScheduleData.get(ctx.getAssets()), cfg, cls, now));
+            b.append('|').append(WidgetRenderer.signature(ScheduleData.get(ctx), cfg, cls, now));
+        } catch (ScheduleData.Missing e) {
+            b.append("|missing");
         } catch (Exception e) {
             b.append("|error");
         }
@@ -256,8 +258,10 @@ final class WidgetUpdater {
     static Bitmap render(Context ctx, WidgetConfig cfg, String cls, boolean dark, Size s, Bitmap photo, Calendar now) {
         Typeface tf = typeface(ctx);
         try {
-            ScheduleData d = ScheduleData.get(ctx.getAssets());
+            ScheduleData d = ScheduleData.get(ctx);
             return WidgetRenderer.render(d, cfg, cls, dark, tf, photo, s.w, s.h, s.dp, now);
+        } catch (ScheduleData.Missing e) {
+            return WidgetRenderer.message("Відкрийте «Розклад», щоб отримати або скласти розклад", dark, tf, s.w, s.h, s.dp);
         } catch (Exception e) {
             return WidgetRenderer.message("Не вдалося прочитати розклад", dark, tf, s.w, s.h, s.dp);
         }
@@ -370,7 +374,7 @@ final class WidgetUpdater {
         int now = c.get(Calendar.HOUR_OF_DAY) * 3600 + c.get(Calendar.MINUTE) * 60 + c.get(Calendar.SECOND);
         int best = Integer.MAX_VALUE;
         try {
-            ScheduleData d = ScheduleData.get(ctx.getAssets());
+            ScheduleData d = ScheduleData.get(ctx);
             if (d.dayInfo(c).school) {
                 for (int[] b : d.bells) {
                     for (int edge : new int[] {b[0] * 60, b[1] * 60}) if (edge > now && edge < best) best = edge;

@@ -3,6 +3,8 @@ package ua.school.rozklad;
 import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -13,6 +15,7 @@ import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.provider.MediaStore;
 import android.view.View;
 import android.view.Window;
@@ -26,22 +29,37 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Locale;
+
 /**
  * Показує розклад з assets/index.html: передає сторінці системну тему і відступи
- * під системні смуги, зберігає налаштування, відкриває галерею для шпалер
- * і дає сторінці керувати віджетами на робочому столі.
+ * під системні смуги, зберігає налаштування й розклад, відкриває галерею для шпалер,
+ * приймає розклад за посиланням чи файлом, ділиться ним і дає сторінці керувати віджетами на робочому столі.
  * Фото вибирається через системний вибір фото, тож доступу до файлів застосунок не просить.
  */
 public class MainActivity extends Activity {
 
     private static final String PAGE = "file:///android_asset/index.html";
-    private static final int REQ_PICK_IMAGE = 7;
+    private static final int REQ_PICK_FILE = 7;
+    /** Більших файлів розкладу не буває (найбільше важать шпалери). */
+    private static final int MAX_FILE = 25 * 1024 * 1024;
 
     private FrameLayout root;
     private WebView web;
     private SharedPreferences prefs;
+    private ClipboardManager clipboard;
     private volatile boolean systemDark;
     private volatile String insetsCss = "0,0,0,0";
+    /** Код розкладу з посилання, яким відкрили застосунок; сторінка забирає його сама. */
+    private volatile String pendingCode;
+    /** Вміст файлу «Розкладу», яким відкрили застосунок (з Telegram, файлового менеджера). */
+    private volatile String pendingFile;
     private ValueCallback<Uri[]> fileCallback;
 
     @Override
@@ -49,6 +67,14 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences(Store.PREFS, MODE_PRIVATE);
         systemDark = isNight(getResources().getConfiguration());
+        // Хто користувався застосунком до обміну розкладами, отримує вбудований розклад як свій.
+        ScheduleStore.ensureMigrated(this);
+        // Буфер обміну беремо тут, у головному потоці: на старих Android його не можна створити з іншого.
+        clipboard = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+        if (savedInstanceState == null) {
+            pendingCode = incomingCode(getIntent());
+            readIncomingFile(getIntent());
+        }
 
         root = new FrameLayout(this);
         web = new WebView(this);
@@ -75,6 +101,11 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                // Посилання на автора відкриваємо в Telegram (або в браузері, якщо Telegram немає).
+                if (url.startsWith("https://t.me/")) {
+                    openExternal(url);
+                    return true;
+                }
                 // Сторінка локальна; будь-які інші адреси не відкриваємо.
                 return !url.startsWith("file:///android_asset/");
             }
@@ -83,10 +114,78 @@ public class MainActivity extends Activity {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                              FileChooserParams params) {
-                return openImagePicker(callback);
+                return openPicker(callback, wantsImage(params));
             }
         });
         web.loadUrl(PAGE);
+    }
+
+    private void openExternal(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (ActivityNotFoundException ignored) {
+            // нема чим відкрити — нічого не робимо
+        }
+    }
+
+    /** Код розкладу з посилання (rozklad://import?c=… або сторінка розкладу на GitHub), або null. */
+    private static String incomingCode(Intent intent) {
+        if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) return null;
+        String data = intent.getDataString();
+        if (data == null || !(data.startsWith("rozklad:") || data.startsWith("https:"))) return null;
+        return ShareCode.extract(data);
+    }
+
+    /** Файл, яким відкрили застосунок («Відкрити за допомогою» чи «Поділитися»): читаємо у фоні й віддаємо сторінці. */
+    private void readIncomingFile(Intent intent) {
+        if (intent == null) return;
+        Uri uri = null;
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) {
+            Uri d = intent.getData();
+            if (d != null && ("content".equals(d.getScheme()) || "file".equals(d.getScheme()))) uri = d;
+        } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            Parcelable p = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (p instanceof Uri) uri = (Uri) p;
+        }
+        if (uri == null) return;
+        final Uri u = uri;
+        final Context app = getApplicationContext();
+        new Thread(() -> {
+            final String text = readText(app, u);
+            if (text == null || text.isEmpty()) return;
+            runOnUiThread(() -> {
+                pendingFile = text;
+                if (web != null) web.evaluateJavascript("window.onIncomingCode && window.onIncomingCode()", null);
+            });
+        }, "rozklad-file").start();
+    }
+
+    private static String readText(Context ctx, Uri u) {
+        try (InputStream in = ctx.getContentResolver().openInputStream(u)) {
+            if (in == null) return null;
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+                if (out.size() > MAX_FILE) return null;
+            }
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return null;   // немає доступу чи файл зник — нічого не робимо
+        }
+    }
+
+    /** Застосунок уже відкритий, а його відкрили ще одним посиланням чи файлом — передаємо сторінці. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        readIncomingFile(intent);
+        String code = incomingCode(intent);
+        if (code == null) return;
+        pendingCode = code;
+        if (web != null) web.evaluateJavascript("window.onIncomingCode && window.onIncomingCode()", null);
     }
 
     private static boolean isNight(Configuration c) {
@@ -129,8 +228,9 @@ public class MainActivity extends Activity {
         root.setOnApplyWindowInsetsListener((v, insets) -> {
             int l, t, r, b;
             if (Build.VERSION.SDK_INT >= 30) {
+                // Клавіатура теж: сторінка відсуне поле введення, щоб воно не ховалось під нею.
                 Insets i = insets.getInsets(
-                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                        WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
                 l = i.left;
                 t = i.top;
                 r = i.right;
@@ -190,19 +290,35 @@ public class MainActivity extends Activity {
         return (Color.red(c) * 299 + Color.green(c) * 587 + Color.blue(c) * 114) / 1000 > 150;
     }
 
-    /** Вибір фото: системний вибір фото (Android 13+), інакше — галерея/файли. */
-    private boolean openImagePicker(ValueCallback<Uri[]> callback) {
+    /** Сторінка просить фото (шпалери) чи файл (розклад від інших)? */
+    private static boolean wantsImage(WebChromeClient.FileChooserParams params) {
+        String[] types = params == null ? null : params.getAcceptTypes();
+        if (types == null) return true;
+        boolean any = false;
+        for (String t : types) {
+            if (t == null || t.trim().isEmpty()) continue;
+            any = true;
+            if (t.trim().startsWith("image/")) return true;
+        }
+        return !any;
+    }
+
+    /**
+     * Фото: системний вибір фото (Android 13+), інакше — галерея/файли.
+     * Файл розкладу: системний вибір файлів (будь-який тип — JSON часто позначено як «невідомий»).
+     */
+    private boolean openPicker(ValueCallback<Uri[]> callback, boolean image) {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         fileCallback = callback;
         Intent get = new Intent(Intent.ACTION_GET_CONTENT);
         get.addCategory(Intent.CATEGORY_OPENABLE);
-        get.setType("image/*");
-        Intent[] tries = Build.VERSION.SDK_INT >= 33
+        get.setType(image ? "image/*" : "*/*");
+        Intent[] tries = image && Build.VERSION.SDK_INT >= 33
                 ? new Intent[] { new Intent(MediaStore.ACTION_PICK_IMAGES), get }
                 : new Intent[] { get };
         for (Intent i : tries) {
             try {
-                startActivityForResult(i, REQ_PICK_IMAGE);
+                startActivityForResult(i, REQ_PICK_FILE);
                 return true;
             } catch (ActivityNotFoundException ignored) {
                 // пробуємо наступний спосіб
@@ -215,7 +331,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQ_PICK_IMAGE || fileCallback == null) return;
+        if (requestCode != REQ_PICK_FILE || fileCallback == null) return;
         Uri[] result = null;
         if (resultCode == RESULT_OK && data != null) {
             if (data.getData() != null) {
@@ -315,7 +431,134 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean setBig(String key, String value) {
+            // Розклад пишеться лише через saveSchedule: там перевірка і оновлення віджетів.
+            if (ScheduleStore.KEY.equals(key)) return false;
             return Store.writeBig(MainActivity.this, key, value);
+        }
+
+        /* ---------- Розклад: збереження, коди й посилання, буфер обміну ---------- */
+
+        @JavascriptInterface
+        public String getSchedule() {
+            return ScheduleStore.read(MainActivity.this);
+        }
+
+        /** "" — збережено (віджети оновляться самі), інакше — текст помилки. */
+        @JavascriptInterface
+        public String saveSchedule(String json) {
+            return ScheduleStore.save(getApplicationContext(), json);
+        }
+
+        @JavascriptInterface
+        public String encodeCode(String json) {
+            try {
+                return ShareCode.encode(json);
+            } catch (RuntimeException e) {
+                return "";
+            }
+        }
+
+        /** JSON розкладу; якщо не вийшло — «!» і пояснення. */
+        @JavascriptInterface
+        public String decodeCode(String text) {
+            try {
+                return ShareCode.decode(text);
+            } catch (IllegalArgumentException e) {
+                return "!" + e.getMessage();
+            } catch (RuntimeException e) {
+                return "!" + ShareCode.DAMAGED;
+            }
+        }
+
+        /** Код із посилання, яким відкрили застосунок (один раз), або "". */
+        @JavascriptInterface
+        public String takeIncomingCode() {
+            String c = pendingCode;
+            pendingCode = null;
+            return c == null ? "" : c;
+        }
+
+        /** Вміст файлу, яким відкрили застосунок (один раз), або "". */
+        @JavascriptInterface
+        public String takeIncomingFile() {
+            String f = pendingFile;
+            pendingFile = null;
+            return f == null ? "" : f;
+        }
+
+        /**
+         * Надіслати файл (розклад, оформлення, шпалери) через системне «Поділитися».
+         * "" — вікно «Поділитися» відкрито, інакше — що не так.
+         */
+        @JavascriptInterface
+        public String shareFile(String name, String content) {
+            if (content == null || content.isEmpty()) return "Порожній файл.";
+            // Без символів, недозволених у назвах файлів, і без «..» (такий файл ShareProvider не віддасть).
+            String safe = name == null ? "" : name.replaceAll("[\\\\/:*?\"<>|\\x00-\\x1f]+", " ")
+                    .replaceAll("\\.{2,}", ".").trim();
+            if (!safe.toLowerCase(Locale.ROOT).endsWith(".json")) safe = "Розклад.json";
+            if (safe.length() > 80) safe = "Розклад.json";
+            File dir = ShareProvider.dir(MainActivity.this);
+            if (!dir.isDirectory() && !dir.mkdirs()) return "Не вдалося підготувати файл.";
+            File[] old = dir.listFiles();
+            if (old != null) for (File f : old) f.delete();   // попередні вже не потрібні
+            File out = new File(dir, safe);
+            try (FileOutputStream o = new FileOutputStream(out)) {
+                o.write(content.getBytes(StandardCharsets.UTF_8));
+            } catch (IOException e) {
+                return "Не вдалося підготувати файл.";
+            }
+            final Uri uri = ShareProvider.uriFor(safe);
+            runOnUiThread(() -> {
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("application/json");
+                send.putExtra(Intent.EXTRA_STREAM, uri);
+                send.setClipData(ClipData.newRawUri("", uri));
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                try {
+                    startActivity(Intent.createChooser(send, "Надіслати файл"));
+                } catch (ActivityNotFoundException ignored) {
+                    // нема чим надіслати
+                }
+            });
+            return "";
+        }
+
+        @JavascriptInterface
+        public boolean copyText(String text) {
+            try {
+                clipboard.setPrimaryClip(ClipData.newPlainText("Розклад", text));
+                return true;
+            } catch (RuntimeException e) {
+                return false;
+            }
+        }
+
+        @JavascriptInterface
+        public String readClipboard() {
+            try {
+                ClipData c = clipboard.getPrimaryClip();
+                if (c == null || c.getItemCount() == 0) return "";
+                CharSequence t = c.getItemAt(0).coerceToText(MainActivity.this);
+                return t == null ? "" : t.toString();
+            } catch (RuntimeException e) {
+                return "";
+            }
+        }
+
+        /** Системне «Поділитися»: Telegram, Viber, пошта тощо. */
+        @JavascriptInterface
+        public void shareText(final String text) {
+            runOnUiThread(() -> {
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("text/plain");
+                send.putExtra(Intent.EXTRA_TEXT, text);
+                try {
+                    startActivity(Intent.createChooser(send, "Поділитися розкладом"));
+                } catch (ActivityNotFoundException ignored) {
+                    // нема чим поділитися — сторінка запропонує скопіювати
+                }
+            });
         }
 
         /* ---------- Віджети ---------- */
@@ -361,6 +604,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void refreshWidgets() {
             WidgetUpdater.requestAll(MainActivity.this);
+        }
+
+        /** Версія застосунку для налаштувань (номер збірки на GitHub). */
+        @JavascriptInterface
+        public String getVersion() {
+            try {
+                return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+            } catch (Exception e) {
+                return "";
+            }
         }
 
         @JavascriptInterface

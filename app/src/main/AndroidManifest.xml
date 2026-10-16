@@ -16,15 +16,55 @@
         android:supportsRtl="false"
         android:theme="@style/AppTheme">
 
+        <!-- singleTask: посилання на розклад відкриває той самий застосунок, а не другу його копію. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
             android:configChanges="uiMode|orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Кнопка «Відкрити в застосунку» на сторінці розкладу: rozklad://import?c=КОД -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="rozklad" android:host="import" />
+            </intent-filter>
+            <!-- Саме посилання на розклад (сторінка на GitHub Pages). Якщо репозиторій перейменують,
+                 змініть адресу тут і в app.js (shareBase). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="stromik839.github.io"
+                    android:pathPrefix="/rozklad-app" />
+            </intent-filter>
+            <!-- Файл «Розкладу» (розклад, оформлення, шпалери): «Відкрити за допомогою» з Telegram чи файлів… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+            </intent-filter>
+            <!-- …і «Поділитися» таким файлом прямо в «Розклад». -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+            </intent-filter>
         </activity>
+
+        <!-- Віддає файл, яким діляться з «Розкладу», лише на читання і лише тому, кому його надіслали. -->
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="ua.school.rozklad.files"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <!-- Три віджети: дзвінки, уроки і разом. Налаштовуються в застосунку. -->
         <receiver

@@ -38,6 +38,50 @@ final class Json {
         return p.value();
     }
 
+    /** Значення (Map, List, рядок, число, true/false, null) у текст JSON. */
+    static String write(Object v) {
+        StringBuilder b = new StringBuilder();
+        write(b, v);
+        return b.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void write(StringBuilder b, Object v) {
+        if (v == null) {
+            b.append("null");
+        } else if (v instanceof String) {
+            b.append(quote((String) v));
+        } else if (v instanceof Boolean) {
+            b.append(((Boolean) v) ? "true" : "false");
+        } else if (v instanceof Number) {
+            double d = ((Number) v).doubleValue();
+            if (Double.isNaN(d) || Double.isInfinite(d)) b.append("null");
+            else if (d == Math.rint(d) && Math.abs(d) < 1e15) b.append((long) d);
+            else b.append(d);
+        } else if (v instanceof Map) {
+            b.append('{');
+            boolean first = true;
+            for (Map.Entry<String, Object> e : ((Map<String, Object>) v).entrySet()) {
+                if (!first) b.append(',');
+                first = false;
+                b.append(quote(e.getKey())).append(':');
+                write(b, e.getValue());
+            }
+            b.append('}');
+        } else if (v instanceof List) {
+            b.append('[');
+            boolean first = true;
+            for (Object o : (List<Object>) v) {
+                if (!first) b.append(',');
+                first = false;
+                write(b, o);
+            }
+            b.append(']');
+        } else {
+            b.append(quote(String.valueOf(v)));
+        }
+    }
+
     /** Рядок у лапках для запису в JSON. */
     static String quote(String v) {
         StringBuilder b = new StringBuilder("\"");
@@ -50,11 +94,11 @@ final class Json {
         return b.append('"').toString();
     }
 
-    /** Пробіли, переноси і коментарі. */
+    /** Пробіли (зокрема нерозривні, що трапляються після копіювання), переноси і коментарі. */
     private void ws() {
         while (i < s.length()) {
             char c = s.charAt(i);
-            if (Character.isWhitespace(c) || c == '﻿') {
+            if (Character.isWhitespace(c) || Character.isSpaceChar(c) || c == '﻿') {
                 i++;
                 continue;
             }

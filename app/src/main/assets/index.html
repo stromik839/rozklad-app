@@ -6,9 +6,10 @@
 <meta name="color-scheme" content="light dark">
 <title>Розклад</title>
 <!--
-  Розклад дзвінків і уроків, 2026–2027 н. р.
-  Щоб змінити розклад, дзвінки, канікули чи інші таблиці — редагуйте файл data.js
-  (його читають і застосунок, і віджети на робочому столі).
+  Розклад дзвінків і уроків.
+  Розклад складають у самому застосунку («Налаштування» → «Розклад» → «Змінити») і передають іншим
+  посиланням, кодом або QR-кодом. Зберігає його Android-оболонка (його ж читають віджети).
+  data.js — лише вбудована заготовка, app.js — автор застосунку й адреса сторінки посилань.
 -->
 <style>
 @font-face {
@@ -166,6 +167,7 @@ html.has-glass #glass { display: block; }
   width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: currentColor;
 }
 .tbl.lessons { border-radius: 0 0 var(--radius) var(--radius); }
+.tbl.lessons.alone { border-radius: var(--radius); }
 .empty { padding: 16px 10px; text-align: center; }
 
 /* Додаткові таблиці нижче (гортаються) */
@@ -251,8 +253,12 @@ html.has-glass #glass { display: block; }
 .sw-other input::-webkit-color-swatch { border: 0; }
 .reset { width: 100%; margin-top: 8px; border-radius: var(--radius); }
 
-/* Віджети */
+/* Віджети та інші екрани поверх налаштувань: що вище — те ближче до користувача */
+#welcome { z-index: 11; }
 #wsheet { z-index: 12; }
+#shsheet { z-index: 13; }
+#esheet { z-index: 15; }
+#isheet { z-index: 16; }   /* посилання могли відкрити й посеред редагування */
 .wprev {
   display: flex; align-items: center; justify-content: center; min-height: 150px; padding: 16px;
   border: 2px solid var(--line); border-radius: var(--radius);
@@ -286,7 +292,112 @@ html.has-glass #glass { display: block; }
 .ed-bar .panel { max-width: 520px; }
 .ed-hint { margin: 0 0 8px; font-size: 14px; text-align: center; }
 
+.author {
+  display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 12px;
+  border: 2px solid var(--line); border-radius: var(--radius); color: var(--fg); text-decoration: none;
+}
+.author:active { background: var(--fg); color: var(--bg); }
+.author:not([href]) { pointer-events: none; }
+.author .logo { width: 48px; height: 48px; }
+.author-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.author-text small { font-size: 14px; }
+/* Назва каналу може бути написана «жирними» символами Unicode — без штучного потовщення поверх них */
+.author-text .aname { font-synthesis: none; }
 .dataerr { margin: 0; padding: calc(var(--safe-top) + 32px) 20px 24px; font-size: 18px; text-align: center; }
+
+/* Логотип: червоний на світлому фоні, білий — на темному; кути — як у всього інтерфейсу */
+.logo {
+  display: block; flex: none; width: 48px; height: 48px; overflow: hidden;
+  border-radius: calc(var(--rp, 0) * 50%);
+}
+.logo svg { width: 100%; height: 100%; }
+.logo .lt { fill: var(--logo-tile, #ff0000); }
+.logo .lm { fill: var(--logo-mark, #ffffff); }
+/* Значок застосунку (той, що на робочому столі) — на привітанні; кути — як у всього інтерфейсу */
+.appicon {
+  display: block; width: 96px; height: 96px; margin: 8px auto 0; overflow: hidden;
+  border-radius: calc(var(--rp, 0) * 50%);
+}
+.appicon svg { display: block; width: 100%; height: 100%; }
+
+/* Поля введення: редактор розкладу й код */
+input, textarea, select { -webkit-user-select: text; user-select: text; }
+.field {
+  display: block; width: 100%; min-height: 44px; margin: 0; padding: 8px 10px;
+  font: inherit; color: var(--fg); background: var(--panel);
+  border: 2px solid var(--line); border-radius: var(--radius);
+  -webkit-appearance: none; appearance: none;
+}
+.field:focus { outline: 3px solid var(--next); outline-offset: -5px; }
+.field::placeholder { color: var(--fg); opacity: .45; }
+textarea.field { min-height: 96px; resize: vertical; font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.note.err { padding: 8px 10px; border: 2px dashed var(--line); border-radius: var(--radius); }
+.note.err ul { margin: 4px 0 0; padding-left: 20px; }
+.btns { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.btns .row2 { margin-top: 0; }
+.wide { width: 100%; border-radius: var(--radius); }
+button.armed { background: var(--fg); color: var(--bg); }
+
+/* Перший запуск без розкладу */
+.welcome { text-align: center; }
+.welcome .wname { margin: 10px 0 2px; font-size: 26px; letter-spacing: .08em; }
+.welcome .wtext { margin: 0 0 6px; font-size: 16px; }
+.welcome .group { margin-top: 26px; }
+.welcome .note { margin-top: 0; }
+
+/* Поділитися */
+.qrbox {
+  margin: 12px auto 0; max-width: 340px; padding: 0; overflow: hidden;
+  background: #ffffff; border: 2px solid var(--line); border-radius: min(var(--radius), 16px);
+}
+.qrbox svg { width: 100%; height: auto; }
+.qrbox.empty { padding: 24px 12px; color: #000; text-align: center; }
+.sbox { margin-bottom: 0; }
+.opts .all { grid-column: 1 / -1; }
+/* Частини розкладу: позначки «так/ні» */
+.parts .crow span { display: flex; flex-direction: column; gap: 2px; }
+.parts .crow small { font-size: 13px; }
+.chk {
+  flex: none; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px;
+  border: 2px solid var(--line); border-radius: calc(var(--radius) / 3); font-style: normal; font-size: 18px; line-height: 1;
+}
+.parts .crow[aria-pressed="false"] .chk { color: transparent; }
+.parts .crow[aria-pressed="true"] .chk { background: var(--fg); color: var(--bg); }
+.parts .crow:active .chk { border-color: var(--bg); }
+button:disabled { opacity: .45; cursor: default; }
+.opts .fill { background: var(--panel); }
+select.field { -webkit-appearance: menulist; appearance: auto; padding-right: 4px; }
+.sbox .big { overflow-wrap: anywhere; }
+
+/* Редактор розкладу */
+#esheet > .panel { padding-bottom: 96px; }
+.etbl .tr { align-items: center; min-height: 52px; }
+.etbl .td { padding: 4px 6px; }
+.etbl .td + .td { border-left: 1px solid var(--line); }
+.etbl .field { min-height: 40px; padding: 6px 8px; border-width: 1px; border-radius: calc(var(--radius) / 2); }
+.ebells .tr { grid-template-columns: 2.3em 1fr 1fr; }
+.elessons .tr { grid-template-columns: 2.3em 1fr; }
+.eper .tr { grid-template-columns: 1fr 44px; }
+.eper .td.stack { flex-direction: column; align-items: stretch; gap: 6px; }
+.eper .dates { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.del { width: 36px; min-height: 36px; padding: 0; border: 0; background: transparent; font-size: 22px; line-height: 1; }
+.eclasses { grid-template-columns: repeat(4, 1fr); }
+.eclasses button { min-height: 48px; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edays { margin-top: 8px; }
+.edays + .tbl { border-radius: 0 0 var(--radius) var(--radius); }
+.ecls-name { display: flex; gap: 6px; margin-top: 8px; }
+.ecls-name .field { flex: 1; }
+.ecls-name button { flex: none; border-radius: var(--radius); }
+.ebar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 16;
+  padding: 10px calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 10px) calc(var(--safe-left) + 12px);
+  background: var(--bg); border-top: 2px solid var(--line);
+}
+.ebar .panel { max-width: 520px; margin: 0 auto; }
+.ebar .row2 { margin-top: 0; }
+.ebar p { margin: 0 0 8px; text-align: center; }
+details.emore { margin-top: 22px; }
+details.emore summary { font-size: 17px; cursor: pointer; }
 
 @media (max-width: 340px) {
   body { font-size: 15px; }
@@ -298,33 +409,24 @@ html.has-glass #glass { display: block; }
   .bottom, .extra { margin-top: 0; border-top: 0; }
 }
 </style>
+<script src="app.js"></script>
 <script src="data.js"></script>
+<script src="qr.js"></script>
+<script src="code.js"></script>
 <script>
 (() => {
   "use strict";
 
-  /* Дані розкладу — у файлі data.js (той самий файл читають віджети). */
-  const D = window.ROZKLAD_DATA || {};
-  const BELLS = D.bells || [];
-  const TERMS = D.terms || [];
-  const HOLIDAYS = D.holidays || [];
-  const YEAR = D.year || "";
-  const CLASSES = D.classes || [];
-  const SCHEDULE = D.schedule || {};
-  const MEALS = D.meals || [];
-  const EVACUATION = D.evacuation || [];
-  const DUTY = D.duty || [];
-
-  // Якщо data.js не прочитався (наприклад, після редагування з помилкою) — кажемо про це, а не показуємо порожній екран.
-  if (!(BELLS.length && TERMS.length && CLASSES.length && D.schedule)) {
-    const fail = () => {
-      document.body.innerHTML = '<p class="dataerr">Не вдалося прочитати розклад. ' +
-        "Перевірте файл data.js: лапки, коми й дужки.</p>";
-    };
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fail);
-    else fail();
-    return;
-  }
+  /* Розклад телефону зберігає Android-оболонка (його ж читають віджети); тут — його копія для показу.
+     data.js — вбудована заготовка: з неї беруться дзвінки, семестри й канікули для нового розкладу. */
+  const TEMPLATE = window.ROZKLAD_DATA || {};
+  const APP = window.ROZKLAD_APP || {};
+  const SHARE_BASE = typeof APP.shareBase === "string" && /^https:\/\/\S+$/.test(APP.shareBase)
+    ? APP.shareBase : "https://stromik839.github.io/rozklad-app/";
+  let D = null;
+  let BELLS = [], TERMS = [], HOLIDAYS = [], YEAR = "", CLASSES = [], SCHEDULE = {};
+  let MEALS = [], EVACUATION = [], DUTY = [];
+  let nsdKey = "", nsdVal = null;   // кеш «наступний навчальний день»
 
   /* Кольори тем за замовчуванням і набір готових кольорів для налаштувань */
   const DEFAULT_COLORS = {
@@ -433,6 +535,259 @@ html.has-glass #glass { display: block; }
     return { cx: 0.5, cy: 0.5, zoom: 1 };
   }
 
+  /* ---------- Розклад: перевірка і завантаження ---------- */
+  // Латинські літери, схожі на кириллічні: «7-A» і «7-А» — це той самий клас.
+  const LOOKALIKE = { A: "А", B: "В", E: "Е", K: "К", M: "М", H: "Н", O: "О", P: "Р", C: "С", T: "Т", X: "Х", I: "І",
+    a: "а", e: "е", o: "о", p: "р", c: "с", x: "х", y: "у", i: "і" };
+  const toCyr = (s) => String(s).replace(/[A-Za-z]/g, (ch) => LOOKALIKE[ch] || ch);
+  const clean = (v, max) => (typeof v === "string" ? v : v === null || v === undefined ? "" : String(v))
+    .replace(/\s+/g, " ").trim().slice(0, max || 60);
+  function normTime(v) {
+    const m = /^(\d{1,2})[:.](\d{2})$/.exec(clean(v, 8));
+    if (!m || +m[1] > 23 || +m[2] > 59) return "";
+    return pad(+m[1]) + ":" + m[2];
+  }
+  const mins = (hm) => +hm.slice(0, 2) * 60 + +hm.slice(3, 5);
+  const isDateKey = (s) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && dateKey(keyDate(s)) === s;
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const DAY_LOW = ["неділя", "понеділок", "вівторок", "середа", "четвер", "п’ятниця", "субота"];
+
+  /* Розклад складається з частин; ними можна ділитися разом або окремо (і оформленням теж). */
+  const PARTS = [
+    ["lessons", "Уроки"],
+    ["bells", "Дзвінки й перерви"],
+    ["calendar", "Навчальний рік"],
+    ["meals", "Харчування"],
+    ["evacuation", "Евакуація"],
+    ["duty", "Чергування"],
+    ["look", "Оформлення"],
+    ["wallpaper", "Шпалери"]
+  ];
+  const SCHEDULE_PARTS = ["lessons", "bells", "calendar", "meals", "evacuation", "duty"];
+
+  function normBells(list, errors) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach((b, k) => {
+      const n = (k + 1) + "-й урок";
+      const a = Array.isArray(b) ? normTime(b[0]) : "", e = Array.isArray(b) ? normTime(b[1]) : "";
+      if (!a || !e) { errors.push(n + ": вкажіть час початку й кінця."); return; }
+      if (mins(a) >= mins(e)) errors.push(n + ": початок (" + a + ") має бути раніше кінця (" + e + ").");
+      const prev = out[out.length - 1];
+      if (prev && mins(a) < mins(prev[1])) errors.push(n + " починається (" + a + ") раніше, ніж закінчується попередній (" + prev[1] + ").");
+      out.push([a, e]);
+    });
+    if (out.length > 14) errors.push("Забагато уроків на день (більше 14).");
+    return out;
+  }
+  function normPeriods(list, what, errors) {
+    const out = [];
+    (Array.isArray(list) ? list : []).forEach((x, k) => {
+      if (!Array.isArray(x)) return;
+      const a = clean(x[0], 10), b = clean(x[1], 10), name = clean(x[2], 40);
+      if (!name && !a && !b) return;   // порожній рядок
+      const n = what + " " + (name ? "«" + name + "»" : k + 1);
+      if (!isDateKey(a) || !isDateKey(b)) { errors.push(n + ": вкажіть обидві дати."); return; }
+      if (a > b) { errors.push(n + ": початок (" + ddmmyyyy(a) + ") пізніше кінця (" + ddmmyyyy(b) + ")."); return; }
+      if (!name) { errors.push(what + " з " + ddmmyyyy(a) + ": додайте назву."); return; }
+      out.push([a, b, name]);
+    });
+    return out.sort((x, y) => (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0));
+  }
+  function normCalendar(src, errors) {
+    const c = { year: clean(src.year, 60), terms: normPeriods(src.terms, "Семестр", errors), holidays: normPeriods(src.holidays, "Канікули", errors) };
+    for (let k = 1; k < c.terms.length; k++) {
+      if (c.terms[k][0] <= c.terms[k - 1][1]) errors.push("Семестри «" + c.terms[k - 1][2] + "» і «" + c.terms[k][2] + "» перетинаються.");
+    }
+    return c;
+  }
+  // Уроки зберігаються повністю, навіть якщо їх більше, ніж дзвінків: додасте дзвінок — з’являться.
+  function normLessons(src, errors) {
+    const sch = src.schedule && typeof src.schedule === "object" && !Array.isArray(src.schedule) ? src.schedule : {};
+    const names = Array.isArray(src.classes) ? src.classes : Object.keys(sch);
+    const out = { classes: [], schedule: {} };
+    const seen = new Set();
+    names.forEach((raw) => {
+      const c = clean(raw, 12);
+      if (!c) { errors.push("Є клас без назви."); return; }
+      const key = toCyr(c).toUpperCase();
+      if (seen.has(key)) { errors.push("Клас «" + c + "» записано двічі."); return; }
+      seen.add(key);
+      if (out.classes.length >= 60) return;
+      const week = Array.isArray(sch[raw]) ? sch[raw] : Array.isArray(sch[c]) ? sch[c] : [];
+      const days = [];
+      for (let d = 0; d < 5; d++) {
+        const list = (Array.isArray(week[d]) ? week[d] : []).slice(0, 14).map((x) => clean(x, 40));
+        while (list.length && !list[list.length - 1]) list.pop();
+        days.push(list);
+      }
+      out.classes.push(c);
+      out.schedule[c] = days;
+    });
+    return out;
+  }
+  // Класи в рядках харчування, евакуації й чергування — просто назви: збігаються з вашими — рядок підсвічується.
+  const clsList = (v) => (Array.isArray(v) ? v : []).map((x) => clean(x, 12)).filter(Boolean);
+  function normMeals(list, errors) {
+    const meals = (Array.isArray(list) ? list : []).map((m) => (m && typeof m === "object"
+      ? { who: clean(m.who, 40), time: normTime(m.time), cls: clsList(m.cls) } : null)).filter((m) => m && (m.who || m.time));
+    for (const m of meals) {
+      if (!m.who) errors.push("Харчування о " + m.time + ": напишіть, які класи.");
+      else if (!m.time) errors.push("Харчування «" + m.who + "»: вкажіть час.");
+    }
+    return meals.filter((m) => m.who && m.time);
+  }
+  function normEvacuation(list) {
+    return (Array.isArray(list) ? list : []).map((f) => (f && typeof f === "object" ? {
+      floor: clean(f.floor, 40),
+      rows: (Array.isArray(f.rows) ? f.rows : []).map((r) => (r && typeof r === "object"
+        ? { who: clean(r.who, 40), route: clean(r.route, 80), cls: clsList(r.cls) } : null)).filter((r) => r && (r.who || r.route))
+    } : null)).filter((f) => f && f.rows.length);
+  }
+  function normDuty(list) {
+    return (Array.isArray(list) ? list : []).map((r) => (r && typeof r === "object" && [1, 2, 3, 4, 5].indexOf(+r.day) >= 0 ? {
+      day: +r.day,
+      items: (Array.isArray(r.items) ? r.items : []).map((x) => (x && typeof x === "object"
+        ? { cls: clean(x.cls, 12), where: clean(x.where, 60) } : null)).filter((x) => x && x.cls)
+    } : null)).filter((r) => r && r.items.length).sort((a, b) => a.day - b.day);
+  }
+  // Оформлення: тема, кольори, кути, налаштування шпалер і стиль віджетів (без самих фото).
+  const W_STYLE_KEYS = ["theme", "bg", "color", "clear", "blur", "dim", "radius", "scale"];
+  function normLook(src) {
+    if (!src || typeof src !== "object" || Array.isArray(src)) return null;
+    const num = (v, min, max) => (isFinite(v) && v !== null && v !== "" ? Math.min(max, Math.max(min, Math.round(+v))) : null);
+    const look = {};
+    if (["system", "light", "dark"].indexOf(src.theme) >= 0) look.theme = src.theme;
+    if (src.colors && typeof src.colors === "object") {
+      const c = {};
+      for (const mode of ["light", "dark"]) {
+        const m = src.colors[mode];
+        if (!m || typeof m !== "object") continue;
+        const one = {};
+        for (const row of COLOR_ROWS) {
+          const v = String(m[row[0]] || "").toLowerCase();
+          if (HEX.test(v)) one[row[0]] = v;
+        }
+        if (Object.keys(one).length) c[mode] = one;
+      }
+      look.colors = c;
+    }
+    const r = num(src.radius, 0, 100);
+    if (r !== null) look.radius = r;
+    if (src.wp && typeof src.wp === "object") {
+      const wp = {};
+      const dim = num(src.wp.dim, 0, 90), clear = num(src.wp.clear, 0, 100), blur = num(src.wp.blur, 0, 100);
+      if (dim !== null) wp.dim = dim;
+      if (clear !== null) wp.clear = clear;
+      if (blur !== null) wp.blur = blur;
+      look.wp = wp;
+    }
+    const w = src.widget;
+    if (w && typeof w === "object") {
+      const ws = {};
+      if (["system", "light", "dark"].indexOf(w.theme) >= 0) ws.theme = w.theme;
+      if (["none", "color", "photo"].indexOf(w.bg) >= 0) ws.bg = w.bg;
+      if (typeof w.color === "string" && /^(#[0-9a-fA-F]{6})?$/.test(w.color)) ws.color = w.color.toLowerCase();
+      for (const k of [["clear", 0, 100], ["blur", 0, 100], ["dim", 0, 90], ["radius", 0, 100], ["scale", 70, 130]]) {
+        const v = num(w[k[0]], k[1], k[2]);
+        if (v !== null) ws[k[0]] = v;
+      }
+      if (Object.keys(ws).length) look.widget = ws;
+    }
+    return Object.keys(look).length ? look : null;
+  }
+  const isPhoto = (v) => typeof v === "string" && v.length < 16 * 1024 * 1024 &&
+    /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]*$/.test(v.slice(0, 64));
+
+  /**
+   * Те, чим поділилися: які частини є і що в них. Частина є, якщо є її поля
+   * (дзвінки — bells, уроки — classes/schedule, рік — terms/holidays, …).
+   */
+  function readShare(src) {
+    const r = { parts: {}, errors: [], warnings: [], id: "", rev: 0, title: "" };
+    if (!src || typeof src !== "object" || Array.isArray(src)) { r.errors.push("Це не розклад."); return r; }
+    const has = (k) => Object.prototype.hasOwnProperty.call(src, k);
+    r.id = typeof src.id === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(src.id) ? src.id : newId();
+    r.rev = isFinite(src.rev) && +src.rev > 0 ? Math.floor(+src.rev) : 0;
+    r.title = clean(src.title, 60);
+    if (has("bells")) r.parts.bells = normBells(src.bells, r.errors);
+    if (has("terms") || has("holidays")) r.parts.calendar = normCalendar(src, r.errors);
+    if (has("classes") || has("schedule")) r.parts.lessons = normLessons(src, r.errors);
+    if (has("meals")) r.parts.meals = normMeals(src.meals, r.errors);
+    if (has("evacuation")) r.parts.evacuation = normEvacuation(src.evacuation);
+    if (has("duty")) r.parts.duty = normDuty(src.duty);
+    if (has("look")) { const l = normLook(src.look); if (l) r.parts.look = l; }
+    if (isPhoto(src.wallpaper)) r.parts.wallpaper = { data: src.wallpaper, crop: parseCrop(JSON.stringify(src.wpCrop || null)) };
+    return r;
+  }
+  // Уроки, яких не видно: їх більше, ніж дзвінків (наприклад, уроки з однієї школи, а дзвінки — свої).
+  function lessonOverflow(p, warnings) {
+    const n = p.bells.length;
+    for (const c of p.classes) {
+      const days = p.schedule[c].map((d, i) => (d.length > n ? DAY_LOW[i + 1] : "")).filter(Boolean);
+      if (days.length) {
+        warnings.push(c + ": уроків більше, ніж дзвінків (" + n + "), — зайві не показуватимуться (" + days.join(", ") +
+          "). Додайте дзвінки у «Змінити».");
+      }
+    }
+  }
+  /**
+   * Повний розклад телефону в єдиному вигляді. Обов’язкові лише дзвінки: класів може й не бути
+   * (тоді показуються самі дзвінки й перерви).
+   */
+  function normalizePackage(src) {
+    const r = readShare(src);
+    if (!src || typeof src !== "object") return { pkg: null, errors: r.errors, warnings: r.warnings };
+    const P = r.parts;
+    const cal = P.calendar || { year: clean(src.year, 60), terms: [], holidays: [] };
+    const les = P.lessons || { classes: [], schedule: {} };
+    const p = {
+      v: 1, id: r.id, rev: r.rev, title: r.title, year: cal.year,
+      bells: P.bells || [], terms: cal.terms, holidays: cal.holidays, classes: les.classes, schedule: les.schedule
+    };
+    if (P.meals && P.meals.length) p.meals = P.meals;
+    if (P.evacuation && P.evacuation.length) p.evacuation = P.evacuation;
+    if (P.duty && P.duty.length) p.duty = P.duty;
+    if (!p.bells.length) r.errors.push("Немає жодного дзвінка.");
+    lessonOverflow(p, r.warnings);
+    return { pkg: p, errors: r.errors, warnings: r.warnings };
+  }
+
+  function setData(pkg) {
+    D = pkg || null;
+    BELLS = D ? D.bells : [];
+    TERMS = D ? D.terms : [];
+    HOLIDAYS = D ? D.holidays : [];
+    YEAR = D ? D.year : "";
+    CLASSES = D ? D.classes : [];
+    SCHEDULE = D ? D.schedule : {};
+    MEALS = (D && D.meals) || [];
+    EVACUATION = (D && D.evacuation) || [];
+    DUTY = (D && D.duty) || [];
+    nsdKey = "";
+    nsdVal = null;
+  }
+  // У застосунку розклад зберігає оболонка; у браузері (для перевірки) — localStorage, а «?demo» бере заготовку.
+  function loadPackage() {
+    let json = "";
+    if (IN_APP && typeof A.getSchedule === "function") { try { json = A.getSchedule() || ""; } catch (e) { json = ""; } }
+    else json = bigStore.get("schedule");
+    let src = null;
+    if (json) { try { src = JSON.parse(json); } catch (e) { src = null; } }
+    else if (!IN_APP && params.has("demo")) src = TEMPLATE;
+    if (!src) return null;
+    const r = normalizePackage(src);
+    return r.pkg && r.pkg.bells.length ? r.pkg : null;
+  }
+  /** Записати розклад: у застосунку оболонка ще раз перевіряє його й оновлює віджети. "" — гаразд, інакше помилка. */
+  function saveSchedule(pkg) {
+    const json = JSON.stringify(pkg);
+    if (IN_APP && typeof A.saveSchedule === "function") {
+      try { return A.saveSchedule(json) || ""; } catch (e) { return "Не вдалося зберегти розклад."; }
+    }
+    return bigStore.set("schedule", json) ? "" : "Не вдалося зберегти розклад.";
+  }
+  setData(loadPackage());
+
   let cls = params.get("cls") || store.get("cls");
   if (CLASSES.indexOf(cls) < 0) cls = null;
   let themePref = params.get("theme") || store.get("theme") || "system";
@@ -496,6 +851,7 @@ html.has-glass #glass { display: block; }
     setVar("--dim", String(wpData ? wpDim / 100 : 0));
     setVar("--dim-color", "rgba(0,0,0," + (wpData ? wpDim / 100 : 0) + ")");
     setVar("--radius", (radiusPct * 0.24).toFixed(1) + "px");
+    setVar("--rp", (radiusPct / 100).toFixed(2));   // логотип: 0 — квадрат, 1 — коло
     const c = document.documentElement.classList;
     c.toggle("has-wp", !!wpData);
     if (typeof scheduleGlassPath === "function" && document.readyState !== "loading") scheduleGlassPath();
@@ -510,6 +866,9 @@ html.has-glass #glass { display: block; }
     setVar("--on-now", onColor(p.now));
     setVar("--on-next", onColor(p.next));
     setVar("color-scheme", isLight(p.bg) ? "light" : "dark");
+    // Логотип: на світлому фоні — червоний квадрат із білим знаком, на темному — білий із червоним.
+    setVar("--logo-tile", isLight(p.bg) ? "#ff0000" : "#ffffff");
+    setVar("--logo-mark", isLight(p.bg) ? "#ffffff" : "#ff0000");
     applyLookVars();
     if (IN_APP && typeof A.setBars === "function") { try { A.setBars(p.bg); } catch (e) { /* без смуг */ } }
   }
@@ -543,15 +902,16 @@ html.has-glass #glass { display: block; }
   }
 
   /* ---------- Календар навчального року ---------- */
+  // Без семестрів навчальним вважається кожен будній день, крім канікул (так само рахують віджети).
   function dayInfo(d) {
     const k = dateKey(d);
     const wd = d.getDay();
     for (const h of HOLIDAYS) {
       if (k >= h[0] && k <= h[1]) return { school: false, text: h[2] + " до " + ddmm(h[1]) };
     }
-    if (k < TERMS[0][0] || k > TERMS[TERMS.length - 1][1]) return { school: false, text: "Літні канікули" };
+    if (TERMS.length && (k < TERMS[0][0] || k > TERMS[TERMS.length - 1][1])) return { school: false, text: "Літні канікули" };
     if (wd === 0 || wd === 6) return { school: false, text: "Сьогодні вихідний" };
-    if (!TERMS.some((t) => k >= t[0] && k <= t[1])) return { school: false, text: "Канікули" };
+    if (TERMS.length && !TERMS.some((t) => k >= t[0] && k <= t[1])) return { school: false, text: "Канікули" };
     return { school: true };
   }
   function nextSchoolDay(d) {
@@ -562,7 +922,6 @@ html.has-glass #glass { display: block; }
     }
     return null;
   }
-  let nsdKey = "", nsdVal = null;
   function nextSchoolDayCached(d) {
     const k = dateKey(d);
     if (k !== nsdKey) { nsdKey = k; nsdVal = nextSchoolDay(d); }
@@ -681,6 +1040,12 @@ html.has-glass #glass { display: block; }
 
   function renderLessons(wd, st) {
     $("ltitle").textContent = cls ? "РОЗКЛАД УРОКІВ " + cls + " КЛАСУ" : "РОЗКЛАД УРОКІВ";
+    $("lessons").classList.toggle("alone", !CLASSES.length);
+    if (!CLASSES.length) {
+      $("lessons").innerHTML = '<div class="empty">Уроків ще немає. Їх можна вписати в налаштуваннях: «Розклад» → «Змінити» — ' +
+        "або отримати від інших.</div>";
+      return;
+    }
     const list = lessonsOf(cls, wd);
     const s = span(list);
     if (s.last < 0) {
@@ -699,7 +1064,7 @@ html.has-glass #glass { display: block; }
   /* ---------- Структура навчального року і відлік до канікул ---------- */
   function yearEvents(ms) {
     const ev = HOLIDAYS.map((h) => ({ name: h[2], from: h[0], to: h[1] }));
-    ev.push({ name: "Літні канікули", from: keyAdd(TERMS[TERMS.length - 1][1], 1), to: "" });
+    if (TERMS.length) ev.push({ name: "Літні канікули", from: keyAdd(TERMS[TERMS.length - 1][1], 1), to: "" });
     return ev.map((e) => {
       const start = keyDate(e.from).getTime();
       const end = e.to ? keyDate(keyAdd(e.to, 1)).getTime() : Infinity;
@@ -827,17 +1192,17 @@ html.has-glass #glass { display: block; }
     let h = '<div class="tr thead"><div class="td">Клас</div><div class="td left">Вихід і укриття</div></div>';
     let mine = null;
     for (const f of EVACUATION) {
-      h += '<div class="tr sect"><div class="td">' + esc(f.floor) + "</div></div>";
+      if (f.floor) h += '<div class="tr sect"><div class="td">' + esc(f.floor) + "</div></div>";
       for (const r of f.rows) {
         const my = cls && r.cls.indexOf(cls) >= 0;
-        if (my) mine = { floor: f.floor, route: r.route };
+        if (my) mine = { floor: f.floor, route: r.route || r.who };
         h += '<div class="tr' + (my ? " hl-mine" : "") + '"><div class="td">' + esc(r.who) +
           '</div><div class="td left">' + esc(r.route) + "</div></div>";
       }
     }
     $("evacTbl").innerHTML = h;
     $("evacMine").hidden = !mine;
-    if (mine) $("evacMine").innerHTML = box("Ваш клас, " + mine.floor, mine.route, "");
+    if (mine) $("evacMine").innerHTML = box(mine.floor ? "Ваш клас, " + mine.floor : "Ваш клас", mine.route, "");
   }
   function renderDuty(todayWd) {
     let h = '<div class="tr thead"><div class="td left">День</div><div class="td left">Класи</div></div>';
@@ -860,7 +1225,7 @@ html.has-glass #glass { display: block; }
   /* ---------- Щосекундне оновлення ---------- */
   // Головний екран закритий налаштуваннями чи редактором фото — його щосекундні числа не видно.
   function covered() {
-    for (const id of ["sheet", "wsheet", "editor"]) {
+    for (const id of ["sheet", "wsheet", "editor", "welcome", "isheet", "shsheet", "esheet"]) {
       const el = $(id);
       if (el && !el.hidden) return true;
     }
@@ -883,7 +1248,9 @@ html.has-glass #glass { display: block; }
     names.forEach((k, el) => io.observe(el));
   }
   // Після закриття налаштувань: оновити числа і, якщо треба, «скло».
+  // Розкладу немає — знову привітання; клас не вибрано — вибір класу.
   function afterClose() {
+    ensureFlow();
     if (covered()) return;
     if (glassDirty) { glassDirty = false; scheduleGlassPath(); }
     tick();
@@ -902,26 +1269,31 @@ html.has-glass #glass { display: block; }
 
     setText($("dname"), DAY_NAMES[d.getDay()] + ", " + pad(d.getDate()) + "." + pad(d.getMonth() + 1));
     setText($("clock"), pad(d.getHours()) + ":" + pad(d.getMinutes()));
+    if (!D) return;   // розкладу ще немає — головний екран закритий привітанням
 
     const info = dayInfo(d);
     const t = d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds();
-    const today = info.school ? lessonsOf(cls, d.getDay()) : [];
+    // Розклад лише з дзвінків (класів немає): кожен дзвінок — урок.
+    const noLessons = !CLASSES.length;
+    const today = !info.school ? [] : noLessons ? BELLS.map((b, i) => (i + 1) + "-й урок") : lessonsOf(cls, d.getDay());
     let st;
     if (!info.school) st = { type: "off" };
-    else if (!cls) st = { type: "noclass" };
+    else if (!cls && !noLessons) st = { type: "noclass" };
     else st = stateAt(t, today);
 
     const nextDay = info.school ? null : nextSchoolDayCached(d);
     const auto = info.school ? d.getDay() : (nextDay ? nextDay.getDay() : 1);
     const wd = viewDay || auto;
     const shown = lessonsOf(cls, wd);
-    const rows = Math.max(7, span(today).last + 1, span(shown).last + 1);
+    const rows = Math.min(BELLS.length, Math.max(7, span(today).last + 1, span(shown).last + 1));
     const todayWd = info.school ? d.getDay() : 0;
 
-    const sig = [k, cls, wd, rows, st.type, st.cur, st.next, st.after, st.last].join("|");
+    const sig = [k, cls, wd, rows, st.type, st.cur, st.next, st.after, st.last, noLessons].join("|");
     if (sig !== lastSig) {
       lastSig = sig;
       $("clsBtn").textContent = cls || "Клас";
+      $("clsBtn").hidden = noLessons;
+      $("days").hidden = noLessons;
       // скільки рядків у двох таблицях — щоб вони разом заповнили перший екран
       setVar("--rows", String(rows + 2 + Math.max(1, span(shown).last + 1)));
       renderBells(st, rows);
@@ -934,6 +1306,11 @@ html.has-glass #glass { display: block; }
     const extraSig = k + "|" + cls;
     if (extraSig !== lastExtra) {
       lastExtra = extraSig;
+      // Розділи, яких у цьому розкладі немає (їх не заповнили), не показуємо.
+      $("secYear").hidden = !(TERMS.length || HOLIDAYS.length);
+      $("secMeal").hidden = !MEALS.length;
+      $("secEvac").hidden = !EVACUATION.length;
+      $("secDuty").hidden = !DUTY.length;
       renderYear(k);
       renderCountdown(ms);
       renderMeals();
@@ -1300,9 +1677,27 @@ html.has-glass #glass { display: block; }
     radius: { get: () => radiusPct, set: (v) => { radiusPct = v; }, max: 100 }
   };
 
+  // Сітка кнопок без порожніх чорних клітинок: стовпців стільки, щоб останній ряд був якомога повнішим.
+  function gridFit(el, n, max) {
+    let cols = Math.min(max, Math.max(1, n));
+    if (n > max) {
+      let gap = (max - (n % max)) % max;
+      for (let c = max - 1; c >= 3 && gap; c--) {
+        const g = (c - (n % c)) % c;
+        if (g < gap) { cols = c; gap = g; }
+      }
+    }
+    el.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
+    return '<i class="fill"></i>'.repeat((cols - (n % cols)) % cols);
+  }
   function renderOptions() {
-    $("clsOpts").innerHTML = CLASSES.map((c) =>
-      '<button type="button" data-cls="' + c + '"' + (c === cls ? ' class="sel"' : "") + ">" + c + "</button>").join("");
+    const el = $("clsOpts");
+    // Розклад лише з дзвінків — класу вибирати нема з чого.
+    el.hidden = !CLASSES.length;
+    $("gClass").hidden = sheetMode === "first" || !CLASSES.length;
+    el.innerHTML = CLASSES.map((c) =>
+      '<button type="button" data-cls="' + esc(c) + '"' + (c === cls ? ' class="sel"' : "") + ">" + esc(c) + "</button>").join("") +
+      gridFit(el, CLASSES.length, 5);
     const themes = [["system", "Як у системі"], ["light", "Біла"], ["dark", "Чорна"]];
     $("themeOpts").innerHTML = themes.map((x) =>
       '<button type="button" data-theme-opt="' + x[0] + '"' + (x[0] === themePref ? ' class="sel"' : "") + ">" + x[1] + "</button>").join("");
@@ -1389,6 +1784,7 @@ html.has-glass #glass { display: block; }
     $("crows").innerHTML = h;
   }
   function renderSettings() {
+    renderSchedInfo();
     renderOptions();
     renderWallpaper();
     renderColors();
@@ -1404,14 +1800,62 @@ html.has-glass #glass { display: block; }
     applyColors();
   }
 
+  /* ---------- Про застосунок: логотип, автор (заповнюється в app.js), версія ---------- */
+  // Знак логотипа (білий на червоному або червоний на білому — за темою), квадрат 100×100.
+  const LOGO_D = "M41.9 80l2.7 1.6l5.3 2.8l3.1-1.5l5.1-2.9l-1.2-0.4l-3-1.4l-1.9-1.1l-2-1.3l-3.9 2.4l-3 1.4zM76 54l-1.2 0.3l-1.7 0.2l-3.8-0.1l-1.6-0.2l-2.3-0.6l-1.7-0.5l-2.2-1l0.4 1.2l0.2 1.8l0 2.4l-0.4 2.5l-0.7 2.4l-1 2.3l-1.1 1.9l-1.6 2.3l-2.3 2.7l1.1 0.7l2 1l3.3 1.1l3.7 0.6l0.8-0.5l2.8-2.6l2.1-2.4l2.7-3.7l1.2-2.1l0.5-1.4l0.5-2.1l0.2-2.1zM24 54l0.1 4.1l0.2 2.1l0.5 2.1l0.5 1.4l1.2 2.1l2.7 3.7l2.1 2.4l2.8 2.6l0.8 0.5l3.7-0.6l3.3-1.1l2-1l1.1-0.7l-2.3-2.7l-1.6-2.3l-1.1-1.9l-1-2.3l-0.7-2.4l-0.4-2.5l0-2.4l0.2-1.8l0.4-1.2l-2.2 1l-1.7 0.5l-2.3 0.6l-1.6 0.2l-3.8 0.1l-1.7-0.2zM50 45.9l-1.6 1.5l-1.1 1.2l-1.7 2.4l-0.6 1.4l-0.5 1.5l-0.3 1.4l-0.1 1.6l0.2 1.4l0.5 1.5l1.3 2.9l1.9 2.7l0.9 1.1l1.1 1.1l1.1-1.1l1.6-1.9l1.2-1.9l0.6-1.1l0.7-1.8l0.5-1.5l0.2-1.4l0-1.2l-0.3-1.4l-0.4-1.4l-1-2.2l-1-1.5l-1.1-1.3l-1.4-1.5zM79.3 38.4l-2.4-0.6l-2.9-0.3l-2.2 0l-3.2 0.3l-2.7 0.5l-3.6 0.9l-3.6 1.4l-2 0.9l1.9 1.5l2.2 1.6l2.3 1.3l1.8 0.8l2.1 0.8l2.1 0.5l2 0.3l2.3-0.1l1.8-0.5l1.5-0.7l0.5-2.2l1.4-4zM20.7 38.4l0.7 2.4l1.4 4l0.5 2.2l1.5 0.7l1.8 0.5l2.3 0.1l2-0.3l2.1-0.5l2.1-0.8l1.8-0.8l2.3-1.3l2.2-1.6l1.9-1.5l-2-0.9l-3.6-1.4l-3-0.8l-3.3-0.6l-3.2-0.3l-2.2 0l-2.9 0.3zM56.9 34.5l1.9-0.7l3.4-1.1l3.3-0.8l3.2-0.5l2.5-0.2l3.5 0l4.4 0.6l-1.3-2.2l-1.4-1.7l-1.9-2l-1.7-1.4l-1.9-1.2l-2-1.1l-2.5-1l-2.5-0.8l-3.6 7.9l-1.8 3.5zM43.1 34.5l-1.6-2.7l-1.8-3.4l-3.6-8l-2.5 0.8l-2.5 1l-2 1.1l-1.9 1.2l-1.7 1.4l-1.9 2l-1.4 1.7l-1.3 2.2l4.4-0.6l3.5 0l2.5 0.2l3.2 0.5l3.3 0.8l3.4 1.1zM42.5 19.3l1.7 4l2.4 4.8l2.1 3.5l1.3 2l2.4-3.7l1.5-2.8l2.3-4.7l1.3-3.1l-3.8-0.3l-7.4 0z";
+  // Логотип власника — лише тут, у «Про застосунок» (значок застосунку — інший, як на робочому столі).
+  function paintLogo() {
+    const el = $("aboutLogo");
+    if (el && !el.firstChild) {
+      el.innerHTML = '<svg viewBox="0 0 100 100" aria-hidden="true"><rect class="lt" width="100" height="100"/>' +
+        '<path class="lm" d="' + LOGO_D + '"/></svg>';
+    }
+  }
+  // Telegram: ім’я (@name, t.me/name) або запрошення в канал (t.me/+код, t.me/joinchat/код).
+  function tgLink(v) {
+    const s = typeof v === "string"
+      ? v.trim().replace(/^https?:\/\//, "").replace(/^(www\.)?(t|telegram)\.me\//, "").replace(/\/+$/, "")
+      : "";
+    const inv = /^(?:\+|joinchat\/)([A-Za-z0-9_-]{8,64})$/.exec(s);
+    if (inv) return { url: "https://t.me/+" + inv[1], label: "Telegram-канал" };
+    const u = s.replace(/^@/, "");
+    return /^[A-Za-z0-9_]{5,32}$/.test(u) ? { url: "https://t.me/" + u, label: "Telegram: @" + u } : null;
+  }
+  function renderAbout() {
+    paintLogo();
+    // Старий data.js тримав автора в собі — його теж розуміємо.
+    const a = (APP.author && typeof APP.author === "object" ? APP.author : TEMPLATE.author) || {};
+    const name = typeof a.name === "string" ? a.name.trim() : "";
+    const tg = tgLink(a.telegram);
+    $("authorName").textContent = name || "Розклад";
+    $("authorTg").textContent = tg ? tg.label : "";
+    $("authorTg").hidden = !tg;
+    const v = version();
+    const ver = name ? "Розклад" + (v ? ", версія " + v : "") : v ? "Версія " + v : "";
+    $("aboutVer").textContent = ver;
+    $("aboutVer").hidden = !ver;
+    const link = $("authorLink");
+    if (tg) link.href = tg.url;
+    else link.removeAttribute("href");
+  }
+  let appVersion = null;
+  function version() {
+    if (appVersion === null) {
+      appVersion = "";
+      if (IN_APP && typeof A.getVersion === "function") { try { appVersion = A.getVersion() || ""; } catch (e) { /* без версії */ } }
+    }
+    return appVersion;
+  }
+
   function openSheet(mode) {
     sheetMode = mode;
     const first = mode === "first";
-    $("stitle").textContent = first ? "У якому класі ви навчаєтесь?" : "Налаштування";
+    $("stitle").textContent = first ? "Оберіть свій клас" : "Налаштування";
     $("sclose").hidden = first;
     $("gClass").hidden = first;
     $("more").hidden = first;
-    $("foot").textContent = first ? "Клас можна буде змінити в налаштуваннях." : "Розклад на " + YEAR + ".";
+    $("foot").textContent = first ? "Клас можна буде змінити в налаштуваннях." : YEAR ? "Розклад на " + YEAR + "." : "";
+    if (!first) renderAbout();
     colorMode = "";
     openRow = "";
     setWpNote("");
@@ -1422,6 +1866,911 @@ html.has-glass #glass { display: block; }
   function closeSheet() {
     $("sheet").hidden = true;
     sheetMode = "";
+    afterClose();
+  }
+
+  /* ===================================================================== */
+  /* ---------- Обмін розкладом: отримати, поділитися, скласти ---------- */
+
+  const countClasses = (n) => n + " " + plural(n, "клас", "класи", "класів");
+  const schedName = (p) => (p && p.title) || "Розклад без назви";
+  function revText(rev) {
+    if (!rev) return "";
+    const d = new Date(rev * 1000);
+    return "оновлено " + pad(d.getDate()) + "." + pad(d.getMonth() + 1) + "." + d.getFullYear();
+  }
+  const schedMeta = (p) => [p.classes.length ? countClasses(p.classes.length) : "лише дзвінки", p.year, revText(p.rev)]
+    .filter(Boolean).join(" · ");
+  function setNote(id, text) {
+    const el = $(id);
+    clearTimeout(el._t);
+    el.textContent = text || "";
+    el.hidden = !text;
+  }
+  // Підказка, що зникає сама.
+  function flashNote(id, text) {
+    setNote(id, text);
+    const el = $(id);
+    if (text) el._t = setTimeout(() => { el.hidden = true; }, 7000);
+  }
+  // Помилка: один рядок або заголовок і список.
+  function setErr(id, msg) {
+    const el = $(id);
+    if (!msg || (Array.isArray(msg) && !msg.length)) { el.hidden = true; el.textContent = ""; return; }
+    if (Array.isArray(msg)) {
+      el.innerHTML = esc(msg[0]) + (msg.length > 1 ? "<ul>" + msg.slice(1).map((m) => "<li>" + esc(m) + "</li>").join("") + "</ul>" : "");
+    } else {
+      el.textContent = msg;
+    }
+    el.hidden = false;
+  }
+  function renderSchedInfo() {
+    $("gSched").hidden = sheetMode === "first" || !D;
+    if (!D) return;
+    $("sName").textContent = schedName(D);
+    $("sMeta").textContent = schedMeta(D);
+  }
+  function setClass(c) {
+    cls = c && CLASSES.indexOf(c) >= 0 ? c : null;
+    store.set("cls", cls || "");
+    refreshWidgets();
+    lastSig = "";
+    lastExtra = "";
+  }
+  // Розклад змінився: перемалювати все.
+  function dataChanged() {
+    viewDay = 0;
+    lastSig = "";
+    lastExtra = "";
+    if (sheetMode === "settings") renderSettings();
+    tick();
+  }
+  // Що показати, коли інших екранів немає: привітання (розкладу ще немає) або вибір класу.
+  function ensureFlow() {
+    for (const id of ["isheet", "shsheet", "esheet"]) if (!$(id).hidden) return;
+    if (!D) {
+      $("welcome").hidden = false;
+      return;
+    }
+    $("welcome").hidden = true;
+    if (!cls && CLASSES.length && !sheetMode) openSheet("first");
+  }
+
+  /* ---------- Коди й буфер обміну: у застосунку — оболонка, у браузері — code.js ---------- */
+  async function decodeText(text) {
+    if (IN_APP && typeof A.decodeCode === "function") {
+      const r = A.decodeCode(text) || "!Не вдалося прочитати код.";
+      if (r.charAt(0) === "!") throw new Error(r.slice(1));
+      return r;
+    }
+    return window.RozkladCode.decode(text);
+  }
+  async function encodeJson(json) {
+    if (IN_APP && typeof A.encodeCode === "function") {
+      const c = A.encodeCode(json);
+      if (!c) throw new Error("Не вдалося підготувати код.");
+      return c;
+    }
+    return window.RozkladCode.encode(json);
+  }
+  async function readClipboard() {
+    if (IN_APP && typeof A.readClipboard === "function") { try { return A.readClipboard() || ""; } catch (e) { return ""; } }
+    try { return navigator.clipboard ? await navigator.clipboard.readText() : ""; } catch (e) { return ""; }
+  }
+  async function copyText(text) {
+    if (IN_APP && typeof A.copyText === "function") { try { return !!A.copyText(text); } catch (e) { return false; } }
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) { return false; }
+  }
+
+  /* ---------- Частини розкладу і оформлення: як їх показати в списку ---------- */
+  const partName = (k) => (PARTS.find((x) => x[0] === k) || [k, k])[1];
+  function bellsText(b) {
+    if (!b || !b.length) return "немає";
+    return b.length + " " + plural(b.length, "урок", "уроки", "уроків") + ", " + b[0][0] + "–" + b[b.length - 1][1];
+  }
+  function lookText(look) {
+    const out = [];
+    if (look.theme) out.push(look.theme === "dark" ? "чорна тема" : look.theme === "light" ? "біла тема" : "тема як у системі");
+    if (look.colors && Object.keys(look.colors).length) out.push("кольори");
+    if (look.radius !== undefined) out.push("кути " + look.radius + "%");
+    if (look.wp) out.push("вигляд шпалер");
+    if (look.widget) out.push("стиль віджетів");
+    return out.join(", ");
+  }
+  // Підпис під назвою частини: що саме в ній.
+  function partNote(k, d) {
+    switch (k) {
+      case "lessons": return d.classes.length === 1 ? d.classes[0] + " клас" : d.classes.length ? countClasses(d.classes.length) : "без класів";
+      case "bells": return bellsText(d);
+      case "calendar": return [d.year, d.terms.length + " " + plural(d.terms.length, "семестр", "семестри", "семестрів"),
+        "канікул: " + d.holidays.length].filter(Boolean).join(", ");
+      case "meals": return d.length + " " + plural(d.length, "рядок", "рядки", "рядків");
+      case "evacuation": return d.reduce((n, f) => n + f.rows.length, 0) + " " + plural(d.reduce((n, f) => n + f.rows.length, 0), "рядок", "рядки", "рядків");
+      case "duty": return d.reduce((n, r) => n + r.items.length, 0) + " " + plural(d.reduce((n, r) => n + r.items.length, 0), "запис", "записи", "записів");
+      case "look": return lookText(d);
+      case "wallpaper": return "фото";
+      default: return "";
+    }
+  }
+  function partsHtml(keys, sel, notes, attr) {
+    return keys.map((k) => '<button type="button" class="crow" ' + attr + '="' + k + '" aria-pressed="' + !!sel[k] + '">' +
+      "<span>" + esc(partName(k)) + (notes[k] ? "<small>" + esc(notes[k]) + "</small>" : "") + "</span>" +
+      '<i class="chk" aria-hidden="true">✓</i></button>').join("");
+  }
+
+  /* ---------- Оформлення: зібрати своє, застосувати отримане ---------- */
+  function currentLook() {
+    const look = { theme: themePref, colors: colors, radius: radiusPct };
+    // Вигляд шпалер (затемнення, прозорість, розмиття) — лише якщо шпалери є: інакше це просто числа за замовчуванням.
+    if (wpData) look.wp = { dim: wpDim, clear: wpClear, blur: wpBlur };
+    loadWidgets();
+    if (widgets.length) {
+      const w = {};
+      for (const k of W_STYLE_KEYS) w[k] = widgets[0].cfg[k];
+      look.widget = w;
+    }
+    return normLook(JSON.parse(JSON.stringify(look)));
+  }
+  function applyLook(look) {
+    if (look.theme) { themePref = look.theme; store.set("theme", themePref); }
+    if (look.colors) { colors = JSON.parse(JSON.stringify(look.colors)); saveColors(); }
+    if (look.radius !== undefined) { radiusPct = look.radius; store.set("radius", radiusPct); }
+    if (look.wp) {
+      if (look.wp.dim !== undefined) { wpDim = look.wp.dim; store.set("wpDim", wpDim); }
+      if (look.wp.clear !== undefined) { wpClear = look.wp.clear; store.set("wpClear", wpClear); }
+      if (look.wp.blur !== undefined) { wpBlur = look.wp.blur; store.set("wpBlur", wpBlur); }
+    }
+    colorMode = "";
+    openRow = "";
+    applyColors();
+    paintWallpaper(false);
+    if (look.widget) {
+      // Стиль — усім віджетам, що вже є, і новим. Свої фото віджетів лишаються.
+      const style = {};
+      for (const k of W_STYLE_KEYS) if (look.widget[k] !== undefined) style[k] = look.widget[k];
+      store.set("widget_style", JSON.stringify(style));
+      loadWidgets();
+      for (const w of widgets) {
+        Object.assign(w.cfg, style);
+        try { A.setWidgetConfig(w.id, JSON.stringify(w.cfg)); } catch (e) { /* без віджетів */ }
+      }
+    }
+    refreshWidgets();
+  }
+  async function applyWallpaper(w) {
+    if (!bigStore.set("wallpaper", w.data)) return false;
+    wpData = w.data;
+    wpCrop = w.crop;
+    store.set("wpCrop", JSON.stringify(wpCrop));
+    refreshWidgets();
+    await showWallpaper();
+    return true;
+  }
+
+  /* ---------- Отримати: посилання, код або файл ---------- */
+  let imp = null;      // { r: що всередині, sel: що застосувати, chosen: клас }
+  let impSeq = 0;
+  function openImport(text, fileText) {
+    imp = null;
+    impSeq++;
+    $("iText").value = text || "";
+    setErr("iErr", "");
+    $("iPrev").hidden = true;
+    $("isheet").hidden = false;
+    $("isheet").scrollTop = 0;
+    if (fileText) checkImport(fileText);
+    else if (text) checkImport();
+  }
+  function closeImport() {
+    imp = null;
+    impSeq++;
+    $("isheet").hidden = true;
+    afterClose();
+  }
+  async function pasteImport() {
+    const t = (await readClipboard()).trim();
+    if (!t) { setErr("iErr", "У буфері обміну порожньо. Скопіюйте посилання або код і натисніть «Вставити» ще раз."); return; }
+    $("iText").value = t.length > 20000 ? "" : t;
+    checkImport(t);
+  }
+  // Файл — це JSON, а посилання чи код треба спершу розпакувати.
+  async function readAny(text) {
+    const t = String(text || "").trim();
+    if (t.charAt(0) === "{") {
+      try { return JSON.parse(t); } catch (e) { throw new Error("Файл пошкоджений або це не файл «Розкладу»."); }
+    }
+    const json = await decodeText(t);
+    try { return JSON.parse(json); } catch (e) { throw new Error("Код пошкоджений."); }
+  }
+  async function checkImport(raw) {
+    const text = raw !== undefined ? String(raw).trim() : $("iText").value.trim();
+    imp = null;
+    $("iPrev").hidden = true;
+    if (!text) { setErr("iErr", "Спершу вставте посилання чи код або відкрийте файл."); return; }
+    const seq = ++impSeq;
+    setErr("iErr", "");
+    let src;
+    try {
+      src = await readAny(text);
+    } catch (e) {
+      if (seq === impSeq) setErr("iErr", (e && e.message) || "Не вдалося прочитати.");
+      return;
+    }
+    if (seq !== impSeq) return;
+    const r = readShare(src);
+    const keys = PARTS.map((x) => x[0]).filter((k) => r.parts[k]);
+    if (!keys.length) { setErr("iErr", "Тут немає ні розкладу, ні оформлення."); return; }
+    if (r.errors.length) { setErr("iErr", ["Це не вийде застосувати:"].concat(r.errors.slice(0, 6))); return; }
+    // Розклад приходить разом з оформленням — оформлення не вмикаємо самі: свою тему людина могла б і не міняти.
+    const withSchedule = keys.some((k) => SCHEDULE_PARTS.indexOf(k) >= 0);
+    const sel = {};
+    for (const k of keys) sel[k] = !withSchedule || SCHEDULE_PARTS.indexOf(k) >= 0;
+    const les = r.parts.lessons;
+    imp = { r, keys, sel, chosen: les ? (les.classes.indexOf(cls) >= 0 ? cls : les.classes.length === 1 ? les.classes[0] : null) : null };
+    renderImport();
+    $("iPrev").scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+  // Новий розклад телефону з вибраних частин; решта лишається своєю.
+  function mergedSchedule() {
+    const P = imp.r.parts, sel = imp.sel;
+    if (!SCHEDULE_PARTS.some((k) => sel[k] && P[k])) return null;   // лише оформлення
+    const out = D ? JSON.parse(JSON.stringify(D))
+      : { v: 1, id: imp.r.id, rev: imp.r.rev, title: imp.r.title, year: "", bells: [], terms: [], holidays: [], classes: [], schedule: {} };
+    const notes = [];
+    if (sel.lessons && P.lessons) {
+      out.classes = P.lessons.classes;
+      out.schedule = P.lessons.schedule;
+      out.id = imp.r.id;
+      out.rev = imp.r.rev;
+      if (imp.r.title) out.title = imp.r.title;
+    }
+    if (sel.bells && P.bells) out.bells = P.bells;
+    if (sel.calendar && P.calendar) {
+      out.terms = P.calendar.terms;
+      out.holidays = P.calendar.holidays;
+      if (P.calendar.year) out.year = P.calendar.year;
+    }
+    for (const k of ["meals", "evacuation", "duty"]) {
+      if (!sel[k] || !P[k]) continue;
+      if (P[k].length) out[k] = P[k];
+      else delete out[k];
+    }
+    if (!out.bells.length) {
+      const t = normalizePackage(TEMPLATE).pkg;
+      out.bells = t ? t.bells : [];
+      if (out.bells.length) {
+        notes.push("Дзвінків тут немає, а своїх у вас ще не було, — поставлено звичайні (" + bellsText(out.bells) +
+          "). Перевірте їх: «Розклад» → «Змінити».");
+      }
+    }
+    const n = normalizePackage(out);
+    return { pkg: n.pkg, errors: n.errors, warnings: notes.concat(n.warnings) };
+  }
+  function renderImport() {
+    const r = imp.r, sel = imp.sel;
+    $("iName").textContent = r.title || (r.parts.lessons || r.parts.bells ? "Розклад без назви" : "Оформлення");
+    const rt = revText(r.rev);
+    $("iMeta").textContent = rt;
+    $("iMeta").hidden = !rt;
+    const notes = {};
+    for (const k of imp.keys) notes[k] = partNote(k, r.parts[k]);
+    $("iParts").innerHTML = partsHtml(imp.keys, sel, notes, "data-ipart");
+    // Що зміниться
+    const chosen = imp.keys.filter((k) => sel[k]);
+    let cmp = "";
+    if (chosen.length) {
+      cmp = "Замінено буде: " + chosen.map((k) => partName(k).toLowerCase()).join(", ") + ". Решта лишиться вашою.";
+      if (sel.lessons && D && D.id === r.id && D.classes.length) {
+        cmp = (r.rev > D.rev ? "Це новіша версія ваших уроків. " : r.rev < D.rev ? "Увага: це старіша версія, ніж у вас. " : "") + cmp;
+      }
+    }
+    setNote("iCmp", cmp);
+    const m = chosen.length ? mergedSchedule() : null;
+    const warn = m ? m.errors.concat(m.warnings) : [];
+    setErr("iWarn", warn.length ? (warn.length === 1 ? warn[0] : ["Зверніть увагу:"].concat(warn.slice(0, 6))) : "");
+    const les = r.parts.lessons;
+    const many = !!(sel.lessons && les && les.classes.length > 1);
+    $("iClsBox").hidden = !many;
+    if (many) {
+      $("iCls").innerHTML = les.classes.map((c) => '<button type="button" data-icls="' + esc(c) + '"' +
+        (c === imp.chosen ? ' class="sel"' : "") + ">" + esc(c) + "</button>").join("") + gridFit($("iCls"), les.classes.length, 5);
+    }
+    $("iApply").disabled = !chosen.length || !!(m && m.errors.length);
+    $("iPrev").hidden = false;
+  }
+  async function applyImport() {
+    if (!imp) return;
+    const m = mergedSchedule();
+    if (m) {
+      if (m.errors.length) { setErr("iErr", ["Не вийшло:"].concat(m.errors.slice(0, 6))); return; }
+      const err = saveSchedule(m.pkg);
+      if (err) { setErr("iErr", err); return; }
+      if (ed) { ed = null; $("esheet").hidden = true; }   // посилання відкрили посеред редагування
+      setData(m.pkg);
+      setClass(imp.sel.lessons && imp.r.parts.lessons ? imp.chosen || cls : cls);
+    }
+    const P = imp.r.parts, sel = imp.sel;
+    const done = [];
+    let fail = "";
+    if (m) done.push("розклад");
+    if (sel.look && P.look) { applyLook(P.look); done.push("оформлення"); }
+    if (sel.wallpaper && P.wallpaper) {
+      if (await applyWallpaper(P.wallpaper)) done.push("шпалери");
+      else fail = "Шпалери не вдалося зберегти: можливо, на телефоні замало місця.";
+    }
+    imp = null;
+    $("isheet").hidden = true;
+    if (D) $("welcome").hidden = true;
+    dataChanged();
+    const msg = [done.length ? "Застосовано: " + done.join(", ") + "." : "", fail].filter(Boolean).join(" ");
+    if (sheetMode === "settings") { renderSettings(); flashNote("sNote", msg); }
+    if (!D && msg) flashNote("welNote", msg + (done.length ? " Тепер отримайте або складіть розклад." : ""));
+    afterClose();
+  }
+  function readFileInput(input) {
+    const f = input.files && input.files[0];
+    input.value = "";
+    if (!f) return;
+    if (f.size > 20 * 1024 * 1024) { setErr("iErr", "Файл завеликий."); return; }
+    const rd = new FileReader();
+    rd.onerror = () => setErr("iErr", "Не вдалося прочитати файл.");
+    rd.onload = () => { $("iText").value = ""; checkImport(String(rd.result || "")); };
+    rd.readAsText(f);
+  }
+
+  /* ---------- Поділитися: частинами або все разом; QR, посилання, код, файл ---------- */
+  let shr = null;      // { avail, sel, scope: "" — усі класи або назва класу, code, link }
+  let shSeq = 0;
+  // Розклад для одного класу: його уроки і лише ті рядки харчування, евакуації й чергування, де він є.
+  function packageFor(scope) {
+    const p = JSON.parse(JSON.stringify(D));
+    if (!scope || CLASSES.indexOf(scope) < 0) return p;
+    p.classes = [scope];
+    p.schedule = {};
+    p.schedule[scope] = D.schedule[scope];
+    if (p.meals) p.meals = p.meals.filter((m) => m.cls.indexOf(scope) >= 0);
+    if (p.evacuation) {
+      p.evacuation = p.evacuation.map((f) => ({ floor: f.floor, rows: f.rows.filter((r) => r.cls.indexOf(scope) >= 0) }))
+        .filter((f) => f.rows.length);
+    }
+    if (p.duty) p.duty = p.duty.map((r) => ({ day: r.day, items: r.items.filter((x) => x.cls === scope) })).filter((r) => r.items.length);
+    return p;
+  }
+  function shareAvail() {
+    const a = [];
+    if (D) {
+      if (CLASSES.length) a.push("lessons");
+      if (BELLS.length) a.push("bells");
+      if (TERMS.length || HOLIDAYS.length) a.push("calendar");
+      if (MEALS.length) a.push("meals");
+      if (EVACUATION.length) a.push("evacuation");
+      if (DUTY.length) a.push("duty");
+    }
+    a.push("look");
+    if (wpData) a.push("wallpaper");
+    return a;
+  }
+  function openShare() {
+    loadWidgets();
+    const avail = shareAvail();
+    const sel = {};
+    for (const k of avail) sel[k] = SCHEDULE_PARTS.indexOf(k) >= 0;   // розклад — так, оформлення — за бажанням
+    // Один клас — ділимося розкладом як є (і всіма рядками харчування, евакуації, чергування).
+    shr = { avail, sel, scope: "", code: "", link: "" };
+    setNote("shNote", "");
+    $("shsheet").hidden = false;
+    $("shsheet").scrollTop = 0;
+    renderShare();
+  }
+  function closeShare() {
+    shr = null;
+    shSeq++;
+    $("shsheet").hidden = true;
+    afterClose();
+  }
+  // Те, що піде іншим. Шпалери — лише у файлі: у QR і посилання вони не вміщаються.
+  function sharePackage(forFile) {
+    const sel = shr.sel;
+    const p = { v: 1, id: D ? D.id : newId(), rev: D ? D.rev : 0, title: D ? D.title : "" };
+    const usesClass = sel.lessons || sel.meals || sel.evacuation || sel.duty;
+    const s = D ? packageFor(usesClass ? shr.scope : "") : null;
+    if (s && sel.lessons) { p.classes = s.classes; p.schedule = s.schedule; }
+    if (s && sel.bells) p.bells = s.bells;
+    if (s && sel.calendar) { p.year = s.year; p.terms = s.terms; p.holidays = s.holidays; }
+    for (const k of ["meals", "evacuation", "duty"]) if (s && sel[k] && s[k] && s[k].length) p[k] = s[k];
+    if (sel.look) { const l = currentLook(); if (l) p.look = l; }
+    if (forFile && sel.wallpaper && wpData) { p.wallpaper = wpData; p.wpCrop = wpCrop; }
+    return p;
+  }
+  const hasContent = (p) => Object.keys(p).some((k) => ["v", "id", "rev", "title", "app"].indexOf(k) < 0);
+  async function renderShare() {
+    const sel = shr.sel;
+    const notes = {};
+    if (D) {
+      if (CLASSES.length) notes.lessons = shr.scope ? shr.scope + " клас" : CLASSES.length === 1 ? CLASSES[0] + " клас" : countClasses(CLASSES.length);
+      notes.bells = bellsText(BELLS);
+      if (TERMS.length || HOLIDAYS.length) notes.calendar = partNote("calendar", { year: YEAR, terms: TERMS, holidays: HOLIDAYS });
+    }
+    notes.look = "тема, кольори, кути" + (wpData ? ", вигляд шпалер" : "") + (widgets.length ? ", стиль віджетів" : "");
+    notes.wallpaper = "лише файлом — у QR-код і посилання не вміщаються";
+    $("shParts").innerHTML = partsHtml(shr.avail, sel, notes, "data-shpart");
+    const many = CLASSES.length > 1 && (sel.lessons || sel.meals || sel.evacuation || sel.duty);
+    $("shScopeBox").hidden = !many;
+    if (many) {
+      const opts = [["", "Усі класи"]].concat(CLASSES.map((c) => [c, c]));
+      const el = $("shScope");
+      el.innerHTML = opts.map((x) => '<button type="button" data-shscope="' + esc(x[0]) + '" class="' +
+        (x[0] ? "" : "all") + (x[0] === shr.scope ? " sel" : "") + '">' + esc(x[1]) + "</button>").join("") +
+        gridFit(el, CLASSES.length, 5);
+    }
+    const box = $("shQr");
+    const seq = ++shSeq;
+    shr.code = shr.link = "";
+    const anySel = shr.avail.some((k) => sel[k]);
+    $("shFile").disabled = !anySel;
+    const pkg = sharePackage(false);
+    const codeOk = hasContent(pkg);
+    for (const id of ["shSend", "shCopyLink", "shCopyCode"]) $(id).disabled = true;
+    box.className = "qrbox empty";
+    if (!codeOk) {
+      box.textContent = !anySel ? "Позначте, чим поділитися." : "Шпалери не вміщаються в QR-код чи посилання — надішліть їх файлом.";
+      $("shHint").textContent = "";
+      return;
+    }
+    box.textContent = "Готую QR-код…";
+    let code;
+    try {
+      code = await encodeJson(JSON.stringify(pkg));
+    } catch (e) {
+      if (seq === shSeq) box.textContent = (e && e.message) || "Не вдалося підготувати код.";
+      return;
+    }
+    if (seq !== shSeq || !shr) return;
+    shr.code = code;
+    shr.link = SHARE_BASE + "#" + code;
+    for (const id of ["shSend", "shCopyLink", "shCopyCode"]) $(id).disabled = false;
+    // Посилання — байтами, а сам код — компактним буквено-цифровим сегментом.
+    const segs = [QR.bytes(SHARE_BASE + "#"), QR.alnum(code)];
+    // Найменша версія (менше дрібних квадратиків — легше читати з екрана); корекція помилок
+    // піднімається сама, якщо в цій версії лишається місце.
+    const q = QR.encode(segs, "L");
+    let hint = "Щоб отримати, наведіть камеру телефону на QR-код або відкрийте посилання. " +
+      "Якщо «Розклад» ще не встановлено, сторінка запропонує його завантажити.";
+    if (q) {
+      const n = q.size + 8;
+      box.className = "qrbox";
+      box.innerHTML = '<svg viewBox="0 0 ' + n + " " + n + '" shape-rendering="crispEdges" aria-hidden="true">' +
+        '<path fill="#000" d="' + QR.svgPath(q, 4) + '"/></svg>';
+      if (q.version > 25) {
+        hint = "QR-код вийшов дуже щільним" + (many && !shr.scope ? " — щоб камера легко його прочитала, оберіть один клас або надішліть посилання." :
+          " — якщо камера його не читає, надішліть посилання.");
+      }
+    } else {
+      box.textContent = "Це завелике для QR-коду" + (many && !shr.scope ? " — оберіть один клас або надішліть посилання." : " — надішліть посилання.");
+    }
+    if (sel.wallpaper) hint += " Шпалери в QR-код і посилання не вміщаються — їх передасть лише файл.";
+    $("shHint").textContent = hint;
+  }
+  function shareMessage() {
+    const sel = shr.sel;
+    const sched = SCHEDULE_PARTS.some((k) => sel[k]);
+    const what = sched ? "Розклад" + (D && D.title ? " «" + D.title + "»" : "") +
+      (shr.scope && $("shScopeBox").hidden === false ? " для " + shr.scope + " класу" : "")
+      : "Оформлення для «Розкладу»";
+    return what + ":\n" + shr.link;
+  }
+  async function sendShare() {
+    if (!shr || !shr.link) return;
+    if (IN_APP && typeof A.shareText === "function") {
+      try { A.shareText(shareMessage()); return; } catch (e) { /* нижче — копіювання */ }
+    }
+    const ok = await copyText(shareMessage());
+    flashNote("shNote", ok ? "Посилання скопійовано — вставте його в чат." : "Не вдалося поділитися. Скопіюйте посилання кнопкою нижче.");
+  }
+  async function copyShare(what) {
+    if (!shr || !shr.link) return;
+    const ok = await copyText(what === "code" ? shr.code : shr.link);
+    flashNote("shNote", !ok ? "Не вдалося скопіювати." : what === "code"
+      ? "Код скопійовано. Його вставляють у «Розклад» → «Отримати»."
+      : "Посилання скопійовано.");
+  }
+  // Файл: усе вибране, разом зі шпалерами. Його відкривають у «Розкладі» → «Відкрити файл» (або просто з Telegram).
+  function shareFileName() {
+    const t = D && D.title ? D.title.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim() : "";
+    return "Розклад" + (t ? " – " + t : "") + ".json";
+  }
+  function sendFile() {
+    if (!shr) return;
+    const p = sharePackage(true);
+    if (!hasContent(p)) return;
+    p.app = "rozklad";
+    const json = JSON.stringify(p);
+    const name = shareFileName();
+    if (IN_APP && typeof A.shareFile === "function") {
+      let err = "";
+      try { err = A.shareFile(name, json) || ""; } catch (e) { err = "Не вдалося підготувати файл."; }
+      if (err) flashNote("shNote", err);
+      return;
+    }
+    // Браузер: просто завантажити файл.
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    flashNote("shNote", "Файл збережено.");
+  }
+
+  /* ---------- Редактор розкладу ---------- */
+  const COMMON_SUBJECTS = ["Українська мова", "Українська література", "Зарубіжна література", "Англійська мова",
+    "Німецька мова", "Математика", "Алгебра", "Геометрія", "Історія України", "Всесвітня історія", "Громадянська освіта",
+    "Правознавство", "Біологія", "Хімія", "Фізика", "Астрономія", "Географія", "Пізнаємо природу", "Інформатика",
+    "Технології", "Мистецтво", "Музичне мистецтво", "Образотворче мистецтво", "Фізична культура",
+    "Здоров’я, безпека та добробут", "Захист України"];
+  let ed = null;       // { d: чернетка, orig: старі назви класів, ci: вибраний клас, day: 1–5, dirty, isNew }
+  let armTimer = 0;
+
+  // Чернетка зручна для редагування: уроки — списком поруч із класами, харчування, евакуація й чергування — рядками.
+  function draftFrom(p) {
+    const c = JSON.parse(JSON.stringify(p));
+    const evac = [];
+    for (const f of c.evacuation || []) for (const r of f.rows) evac.push({ floor: f.floor, who: r.who, route: r.route });
+    const duty = [];
+    for (const r of c.duty || []) for (const x of r.items) duty.push({ day: r.day, cls: x.cls, where: x.where });
+    return {
+      id: c.id, title: c.title, year: c.year,
+      bells: c.bells, terms: c.terms, holidays: c.holidays,
+      classes: c.classes.slice(),
+      schedule: c.classes.map((n) => {
+        const w = (c.schedule[n] || []).map((d) => d.slice());
+        while (w.length < 5) w.push([]);
+        return w;
+      }),
+      meals: (c.meals || []).map((m) => ({ who: m.who, time: m.time })),
+      evac, duty
+    };
+  }
+  // Новий розклад: дзвінки, семестри й канікули — із вбудованої заготовки, класів ще немає.
+  function templateDraft() {
+    const t = normalizePackage(Object.assign({}, TEMPLATE, { classes: [], schedule: {}, meals: [], evacuation: [], duty: [] })).pkg;
+    const d = draftFrom(t);
+    d.id = newId();
+    d.title = "";
+    return d;
+  }
+  // Класи з тексту рядка: «7-А, 7-Б», «10–11» (усі 10-ті й 11-ті), «9» (усі 9-ті), «1–4 класи».
+  function clsFromWho(who, classes) {
+    const out = [];
+    const add = (c) => { if (out.indexOf(c) < 0) out.push(c); };
+    const norm = (s) => toCyr(s).toUpperCase().replace(/\s+/g, "");
+    const num = (c) => { const m = /^(\d+)/.exec(c); return m ? +m[1] : NaN; };
+    for (let part of String(who || "").split(/[,;]/)) {
+      part = part.trim().replace(/\s*(класи|класів|клас|кл\.?)$/i, "").trim();
+      if (!part) continue;
+      const exact = classes.filter((c) => norm(c) === norm(part));
+      if (exact.length) { exact.forEach(add); continue; }
+      const r = /^(\d{1,2})\s*[–—-]\s*(\d{1,2})$/.exec(part);
+      if (r) {
+        const a = Math.min(+r[1], +r[2]), b = Math.max(+r[1], +r[2]);
+        classes.forEach((c) => { const n = num(c); if (n >= a && n <= b) add(c); });
+        continue;
+      }
+      if (/^\d{1,2}$/.test(part)) classes.forEach((c) => { if (num(c) === +part) add(c); });
+    }
+    return out;
+  }
+  function edToPackage() {
+    const d = ed.d;
+    const names = d.classes.map((c) => clean(c, 12));
+    const schedule = {};
+    names.forEach((c, i) => { if (c && !Object.prototype.hasOwnProperty.call(schedule, c)) schedule[c] = d.schedule[i]; });
+    const floors = new Map();
+    for (const r of d.evac) {
+      if (!clean(r.who) && !clean(r.route)) continue;
+      const f = clean(r.floor, 40);
+      if (!floors.has(f)) floors.set(f, []);
+      floors.get(f).push({ who: r.who, route: r.route, cls: clsFromWho(r.who, names) });
+    }
+    const days = new Map();
+    for (const x of d.duty) {
+      const c = clean(x.cls, 12);
+      if (!c) continue;
+      if (!days.has(+x.day)) days.set(+x.day, []);
+      days.get(+x.day).push({ cls: c, where: x.where });
+    }
+    return {
+      id: d.id, rev: Math.floor(Date.now() / 1000), title: d.title, year: d.year,
+      bells: d.bells, terms: d.terms, holidays: d.holidays, classes: names, schedule,
+      meals: d.meals.map((m) => ({ who: m.who, time: m.time, cls: clsFromWho(m.who, names) })),
+      evacuation: Array.from(floors, (e) => ({ floor: e[0], rows: e[1] })),
+      duty: Array.from(days, (e) => ({ day: e[0], items: e[1] }))
+    };
+  }
+
+  function openSchedEditor(isNew) {
+    const fresh = isNew || !D;
+    ed = { d: fresh ? templateDraft() : draftFrom(D), ci: 0, day: 1, dirty: false, isNew: fresh };
+    ed.orig = ed.d.classes.slice();
+    if (!fresh && cls) { const i = ed.d.classes.indexOf(cls); if (i >= 0) ed.ci = i; }
+    const wd = now().getDay();
+    if (wd >= 1 && wd <= 5) ed.day = wd;
+    $("eTitle").textContent = fresh ? "Новий розклад" : "Змінити розклад";
+    $("eName").value = ed.d.title;
+    $("eYear").value = ed.d.year;
+    $("eMore").open = ed.d.meals.length + ed.d.evac.length + ed.d.duty.length > 0;
+    setErr("eErr", "");
+    $("eAsk").hidden = true;
+    $("eMain").hidden = false;
+    renderEd();
+    $("esheet").hidden = false;
+    $("esheet").scrollTop = 0;
+  }
+  function closeEd() {
+    ed = null;
+    $("esheet").hidden = true;
+    afterClose();
+  }
+  function cancelEd() {
+    if (!ed) return;
+    if (ed.dirty && $("eAsk").hidden) {
+      $("eAsk").hidden = false;
+      $("eMain").hidden = true;
+      return;
+    }
+    closeEd();
+  }
+  function renderEd() {
+    renderEdBells();
+    renderEdClasses();
+    renderEdPeriods("terms");
+    renderEdPeriods("holidays");
+    renderEdExtras();
+    renderEdSubjects();
+  }
+  const inp = (attrs, value) => '<input class="field"' + attrs + ' value="' + esc(value || "") + '" autocomplete="off">';
+  const delBtn = (kind, i) => '<button type="button" class="del" data-edel="' + kind + '" data-i="' + i + '" aria-label="Прибрати">×</button>';
+
+  function renderEdBells() {
+    let h = '<div class="tr thead"><div class="td">№</div><div class="td">Початок</div><div class="td">Кінець</div></div>';
+    ed.d.bells.forEach((b, i) => {
+      h += '<div class="tr"><div class="td">' + (i + 1) + '</div>' +
+        '<div class="td">' + inp(' type="time" data-ebell="' + i + '" data-k="0" aria-label="Початок ' + (i + 1) + '-го уроку"', b[0]) + "</div>" +
+        '<div class="td">' + inp(' type="time" data-ebell="' + i + '" data-k="1" aria-label="Кінець ' + (i + 1) + '-го уроку"', b[1]) + "</div></div>";
+    });
+    if (!ed.d.bells.length) h += '<div class="empty">Дзвінків ще немає</div>';
+    $("eBells").innerHTML = h;
+    disarm("eBellDel", "Прибрати останній");
+    $("eBellDel").disabled = !ed.d.bells.length;
+  }
+  function renderEdClasses() {
+    const d = ed.d;
+    if (ed.ci >= d.classes.length) ed.ci = Math.max(0, d.classes.length - 1);
+    $("eClasses").innerHTML = d.classes.map((c, i) => '<button type="button" data-ecls="' + i + '"' +
+      (i === ed.ci ? ' class="sel"' : "") + ">" + esc(clean(c, 12) || "без назви") + "</button>").join("") +
+      '<button type="button" id="eClsAdd" aria-label="Додати клас">+</button>' + gridFit($("eClasses"), d.classes.length + 1, 4);
+    $("eNoCls").hidden = d.classes.length > 0;
+    $("eClsBox").hidden = !d.classes.length;
+    if (!d.classes.length) return;
+    $("eClsName").value = d.classes[ed.ci];
+    disarm("eClsDel", "Видалити клас");
+    renderEdDays();
+    renderEdLessons();
+  }
+  function renderEdDays() {
+    let h = "";
+    for (let i = 1; i <= 5; i++) {
+      h += '<button type="button" role="tab" data-eday="' + i + '" aria-selected="' + (i === ed.day) + '"' +
+        (i === ed.day ? ' class="sel"' : "") + ">" + DAY_SHORT[i] + "</button>";
+    }
+    $("eDays").innerHTML = h;
+  }
+  function renderEdLessons() {
+    const list = ed.d.schedule[ed.ci][ed.day - 1];
+    let h = '<div class="tr thead"><div class="td">№</div><div class="td">' + esc(DAY_NAMES[ed.day]) + "</div></div>";
+    for (let i = 0; i < ed.d.bells.length; i++) {
+      h += '<div class="tr"><div class="td">' + (i + 1) + '</div><div class="td">' +
+        inp(' list="eSubj" maxlength="40" data-eles="' + i + '" aria-label="' + (i + 1) + '-й урок"', list[i]) + "</div></div>";
+    }
+    if (!ed.d.bells.length) h += '<div class="empty">Спершу додайте дзвінки</div>';
+    $("eLessons").innerHTML = h;
+  }
+  function renderEdPeriods(kind) {
+    const ph = kind === "terms" ? "Назва, напр. I семестр" : "Назва, напр. Зимові канікули";
+    let h = "";
+    ed.d[kind].forEach((p, i) => {
+      const a = ' data-eper="' + kind + '" data-i="' + i + '"';
+      h += '<div class="tr"><div class="td stack">' +
+        inp(a + ' data-k="2" maxlength="40" placeholder="' + ph + '"', p[2]) +
+        '<div class="dates">' + inp(' type="date"' + a + ' data-k="0" aria-label="З"', p[0]) +
+        inp(' type="date"' + a + ' data-k="1" aria-label="По"', p[1]) + "</div>" +
+        '</div><div class="td">' + delBtn(kind, i) + "</div></div>";
+    });
+    $(kind === "terms" ? "eTerms" : "eHolidays").innerHTML = h || '<div class="empty">Порожньо</div>';
+  }
+  function renderEdExtras() {
+    const d = ed.d;
+    let h = "";
+    d.meals.forEach((m, i) => {
+      h += '<div class="tr"><div class="td stack">' +
+        inp(' data-emeal="' + i + '" data-k="who" maxlength="40" placeholder="Класи, напр. 7-А, 7-Б"', m.who) +
+        inp(' type="time" data-emeal="' + i + '" data-k="time" aria-label="Час"', m.time) +
+        '</div><div class="td">' + delBtn("meals", i) + "</div></div>";
+    });
+    $("eMeals").innerHTML = h || '<div class="empty">Порожньо</div>';
+    h = "";
+    d.evac.forEach((r, i) => {
+      h += '<div class="tr"><div class="td stack">' +
+        inp(' data-eevac="' + i + '" data-k="floor" maxlength="40" placeholder="Поверх, напр. II поверх"', r.floor) +
+        inp(' data-eevac="' + i + '" data-k="who" maxlength="40" placeholder="Класи, напр. 7-А, 8"', r.who) +
+        inp(' data-eevac="' + i + '" data-k="route" maxlength="80" placeholder="Вихід і укриття"', r.route) +
+        '</div><div class="td">' + delBtn("evac", i) + "</div></div>";
+    });
+    $("eEvac").innerHTML = h || '<div class="empty">Порожньо</div>';
+    h = "";
+    const names = d.classes.map((c) => clean(c, 12)).filter(Boolean);
+    d.duty.forEach((x, i) => {
+      const opts = names.indexOf(x.cls) < 0 ? [x.cls].concat(names) : names;
+      h += '<div class="tr"><div class="td stack"><div class="dates">' +
+        '<select class="field" data-eduty="' + i + '" data-k="day" aria-label="День">' +
+        [1, 2, 3, 4, 5].map((k) => '<option value="' + k + '"' + (k === +x.day ? " selected" : "") + ">" + DAY_NAMES[k] + "</option>").join("") +
+        '</select><select class="field" data-eduty="' + i + '" data-k="cls" aria-label="Клас">' +
+        opts.map((c) => '<option value="' + esc(c) + '"' + (c === x.cls ? " selected" : "") + ">" + esc(c || "—") + "</option>").join("") +
+        "</select></div>" +
+        inp(' data-eduty="' + i + '" data-k="where" maxlength="60" placeholder="Де, напр. II поверх (можна порожньо)"', x.where) +
+        '</div><div class="td">' + delBtn("duty", i) + "</div></div>";
+    });
+    $("eDuty").innerHTML = h || '<div class="empty">Порожньо</div>';
+  }
+  function renderEdSubjects() {
+    const set = new Set();
+    for (const w of ed.d.schedule) for (const day of w) for (const s of day) if (clean(s)) set.add(clean(s));
+    for (const s of COMMON_SUBJECTS) set.add(s);
+    $("eSubj").innerHTML = Array.from(set).map((s) => '<option value="' + esc(s) + '">').join("");
+  }
+  // Введення в редакторі: змінюємо чернетку, не перемальовуючи (щоб не збивати клавіатуру).
+  function onEdInput(t) {
+    if (!ed) return false;
+    const s = t.dataset;
+    if (t.id === "eName") ed.d.title = t.value;
+    else if (t.id === "eYear") ed.d.year = t.value;
+    else if (t.id === "eClsName") {
+      // Чергування посилається на клас за назвою — перейменовуємо й там.
+      const old = ed.d.classes[ed.ci];
+      for (const x of ed.d.duty) if (x.cls === old) x.cls = t.value;
+      ed.d.classes[ed.ci] = t.value;
+      const b = document.querySelector('[data-ecls="' + ed.ci + '"]');
+      if (b) b.textContent = clean(t.value, 12) || "без назви";
+    } else if (s.ebell !== undefined) ed.d.bells[+s.ebell][+s.k] = t.value;
+    else if (s.eles !== undefined) {
+      const list = ed.d.schedule[ed.ci][ed.day - 1];
+      while (list.length <= +s.eles) list.push("");
+      list[+s.eles] = t.value;
+    } else if (s.eper) ed.d[s.eper][+s.i][+s.k] = t.value;
+    else if (s.emeal !== undefined) ed.d.meals[+s.emeal][s.k] = t.value;
+    else if (s.eevac !== undefined) ed.d.evac[+s.eevac][s.k] = t.value;
+    else if (s.eduty !== undefined) ed.d.duty[+s.eduty][s.k] = s.k === "day" ? +t.value : t.value;
+    else return false;
+    ed.dirty = true;
+    return true;
+  }
+  // Небезпечні кнопки спрацьовують з другого натискання.
+  function arm(b, text) {
+    b.classList.add("armed");
+    b.dataset.armed = "1";
+    b.textContent = text;
+    clearTimeout(armTimer);
+    armTimer = setTimeout(() => {
+      if (!ed) return;
+      disarm("eClsDel", "Видалити клас");
+      disarm("eBellDel", "Прибрати останній");
+    }, 4000);
+  }
+  function disarm(id, text) {
+    const b = $(id);
+    b.classList.remove("armed");
+    delete b.dataset.armed;
+    b.textContent = text;
+  }
+  function focusLater(sel) {
+    requestAnimationFrame(() => {
+      const el = typeof sel === "string" ? document.querySelector(sel) : sel;
+      if (!el) return;
+      try { el.focus(); el.scrollIntoView({ block: "center" }); } catch (e) { /* без фокуса */ }
+    });
+  }
+  function addEdRow(kind) {
+    const d = ed.d;
+    if (kind === "bell") {
+      const last = d.bells[d.bells.length - 1];
+      let st = 8 * 60 + 30;
+      if (last && normTime(last[1])) st = mins(normTime(last[1])) + 10;
+      st = Math.min(st, 23 * 60 + 14);
+      const hm = (m) => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
+      d.bells.push([hm(st), hm(Math.min(st + 45, 23 * 60 + 59))]);
+      renderEdBells();
+      renderEdLessons();
+    } else if (kind === "terms" || kind === "holidays") {
+      d[kind].push(["", "", ""]);
+      renderEdPeriods(kind);
+      focusLater("#" + (kind === "terms" ? "eTerms" : "eHolidays") + " .tr:last-child input");
+    } else if (kind === "meals") {
+      d.meals.push({ who: "", time: "" });
+      renderEdExtras();
+      focusLater("#eMeals .tr:last-child input");
+    } else if (kind === "evac") {
+      const prev = d.evac[d.evac.length - 1];
+      d.evac.push({ floor: prev ? prev.floor : "", who: "", route: "" });
+      renderEdExtras();
+      focusLater('#eEvac .tr:last-child input[data-k="who"]');
+    } else if (kind === "duty") {
+      const names = d.classes.map((c) => clean(c, 12)).filter(Boolean);
+      d.duty.push({ day: 1, cls: names[0] || "", where: "" });
+      renderEdExtras();
+    }
+    ed.dirty = true;
+  }
+  function delEdRow(kind, i) {
+    const list = kind === "evac" ? ed.d.evac : ed.d[kind];
+    if (!list || i < 0 || i >= list.length) return;
+    list.splice(i, 1);
+    if (kind === "terms" || kind === "holidays") renderEdPeriods(kind);
+    else renderEdExtras();
+    ed.dirty = true;
+  }
+  function addEdClass() {
+    ed.d.classes.push("");
+    ed.d.schedule.push([[], [], [], [], []]);
+    ed.orig.push("");
+    ed.ci = ed.d.classes.length - 1;
+    ed.dirty = true;
+    renderEdClasses();
+    focusLater($("eClsName"));
+  }
+  function delEdClass(b) {
+    if (!b.dataset.armed) { arm(b, "Точно видалити?"); return; }
+    ed.d.classes.splice(ed.ci, 1);
+    ed.d.schedule.splice(ed.ci, 1);
+    ed.orig.splice(ed.ci, 1);
+    ed.dirty = true;
+    renderEdClasses();
+    renderEdExtras();
+  }
+  function delEdBell(b) {
+    const n = ed.d.bells.length;
+    if (!n) return;
+    const used = ed.d.schedule.some((w) => w.some((day) => clean(day[n - 1])));
+    if (used && !b.dataset.armed) { arm(b, "На " + n + "-му уроці є предмети — прибрати?"); return; }
+    ed.d.bells.pop();
+    for (const w of ed.d.schedule) for (const day of w) if (day.length > n - 1) day.length = n - 1;
+    ed.dirty = true;
+    renderEdBells();
+    renderEdLessons();
+  }
+  function saveEd() {
+    const r = normalizePackage(edToPackage());
+    if (r.errors.length) {
+      setErr("eErr", ["Не збережено — виправте:"].concat(r.errors.slice(0, 8)));
+      $("eErr").scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
+    const err = saveSchedule(r.pkg);
+    if (err) { setErr("eErr", err); return; }
+    // Свій клас перейменували — лишаємось у ньому.
+    let mine = cls;
+    const at = ed.orig.indexOf(cls);
+    if (cls && at >= 0) mine = clean(ed.d.classes[at], 12);
+    const wasNew = ed.isNew;
+    ed = null;
+    $("esheet").hidden = true;
+    setData(r.pkg);
+    setClass(CLASSES.indexOf(mine) >= 0 ? mine : CLASSES.length === 1 ? CLASSES[0] : null);
+    $("welcome").hidden = true;
+    dataChanged();
+    if (sheetMode === "settings") flashNote("sNote", "Розклад збережено." + (r.warnings.length ? " " + r.warnings[0] : ""));
+    if (wasNew) { openShare(); return; }   // новий розклад — одразу можна ним поділитися
     afterClose();
   }
 
@@ -1614,10 +2963,50 @@ html.has-glass #glass { display: block; }
     return false;
   }
 
+  // Кнопки обміну розкладом і редактора.
+  function onSchedClick(b) {
+    const d = b.dataset;
+    switch (b.id) {
+      case "welPaste": case "sImport": openImport(""); return true;
+      case "welCreate": openSchedEditor(true); return true;
+      case "sShare": openShare(); return true;
+      case "sEdit": openSchedEditor(false); return true;
+      case "iclose": closeImport(); return true;
+      case "iPaste": pasteImport(); return true;
+      case "iCheck": checkImport(); return true;
+      case "iApply": applyImport(); return true;
+      case "shclose": closeShare(); return true;
+      case "shSend": sendShare(); return true;
+      case "shCopyLink": copyShare("link"); return true;
+      case "shCopyCode": copyShare("code"); return true;
+      case "shFile": sendFile(); return true;
+      case "iFileBtn": $("iFile").click(); return true;
+      case "eclose": case "eCancel": cancelEd(); return true;
+      case "eSave": saveEd(); return true;
+      case "eDiscard": closeEd(); return true;
+      case "eStay": $("eAsk").hidden = true; $("eMain").hidden = false; return true;
+      default: break;
+    }
+    if (d.icls !== undefined) { if (imp) { imp.chosen = d.icls; renderImport(); } return true; }
+    if (d.ipart) { if (imp) { imp.sel[d.ipart] = !imp.sel[d.ipart]; renderImport(); } return true; }
+    if (d.shpart) { if (shr) { shr.sel[d.shpart] = !shr.sel[d.shpart]; setNote("shNote", ""); renderShare(); } return true; }
+    if (d.shscope !== undefined) { if (shr) { shr.scope = d.shscope; setNote("shNote", ""); renderShare(); } return true; }
+    if (!ed) return false;
+    if (b.id === "eClsAdd") { addEdClass(); return true; }
+    if (b.id === "eClsDel") { delEdClass(b); return true; }
+    if (b.id === "eBellDel") { delEdBell(b); return true; }
+    if (d.ecls !== undefined) { ed.ci = +d.ecls; renderEdClasses(); return true; }
+    if (d.eday !== undefined) { ed.day = +d.eday; renderEdDays(); renderEdLessons(); return true; }
+    if (d.eadd) { addEdRow(d.eadd); return true; }
+    if (d.edel) { delEdRow(d.edel, +d.i); return true; }
+    return false;
+  }
+
   function onClick(e) {
     const b = e.target.closest ? e.target.closest("button") : null;
     if (!b) return;
     const d = b.dataset;
+    if (onSchedClick(b)) return;
     if (onWidgetClick(b)) return;
     if (b.id === "gear" || b.id === "clsBtn") { openSheet("settings"); return; }
     if (b.id === "sclose") { closeSheet(); return; }
@@ -1643,12 +3032,8 @@ html.has-glass #glass { display: block; }
       return;
     }
     if (d.cls) {
-      cls = d.cls;
-      store.set("cls", cls);
-      refreshWidgets();
+      setClass(d.cls);
       if (sheetMode === "first") closeSheet(); else renderOptions();
-      lastSig = "";
-      lastExtra = "";
       tick();
       return;
     }
@@ -1673,6 +3058,8 @@ html.has-glass #glass { display: block; }
   }
   function onInput(e) {
     const t = e.target;
+    if (onEdInput(t)) return;
+    if (t.id === "iText") { setErr("iErr", ""); return; }
     const ws = W_SLIDERS[t.id];
     if (ws) {
       const w = curW();
@@ -1703,8 +3090,14 @@ html.has-glass #glass { display: block; }
   }
   function onChange(e) {
     const t = e.target;
+    if (onEdInput(t)) {
+      if (t.dataset.eles !== undefined) renderEdSubjects();   // новий предмет — у підказки
+      if (t.id === "eClsName") renderEdExtras();              // нова назва — у списках чергування
+      return;
+    }
     if (W_SLIDERS[t.id]) { saveW(); return; }
     if (t.id === "wgFile") { onWidgetPhoto(t); return; }
+    if (t.id === "iFile") { readFileInput(t); return; }
     if (SLIDERS[t.id]) {
       store.set(t.id, SLIDERS[t.id].get());
       if (t.id === "wpBlur") scheduleWallpaper(false);
@@ -1714,7 +3107,22 @@ html.has-glass #glass { display: block; }
   }
 
   // Виклики з Android-оболонки (MainActivity.java)
-  window.onInsets = setInsets;
+  // Відступи змінюються й тоді, коли з’являється клавіатура: поле, у яке пишуть, не має сховатися під нею.
+  window.onInsets = (str) => {
+    setInsets(str);
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) {
+      requestAnimationFrame(() => { try { a.scrollIntoView({ block: "center" }); } catch (e) { /* старий WebView */ } });
+    }
+  };
+  // Застосунок відкрили посиланням на розклад або файлом (з Telegram, файлового менеджера).
+  window.onIncomingCode = () => {
+    let c = "", f = "";
+    if (IN_APP && typeof A.takeIncomingCode === "function") { try { c = A.takeIncomingCode() || ""; } catch (e) { c = ""; } }
+    if (IN_APP && typeof A.takeIncomingFile === "function") { try { f = A.takeIncomingFile() || ""; } catch (e) { f = ""; } }
+    if (f) openImport("", f);
+    else if (c) openImport(c);
+  };
   window.onSystemThemeChanged = () => {
     applyColors();
     if (sheetMode === "settings") renderSettings();
@@ -1726,8 +3134,12 @@ html.has-glass #glass { display: block; }
     lastExtra = "";
     if (document.readyState !== "loading") tick();
   };
+  // «Назад»: закриває верхній екран (у тому ж порядку, у якому вони лежать один над одним).
   window.onAndroidBack = () => {
     if (!$("editor").hidden) { closeEditor(false); return true; }
+    if (!$("isheet").hidden) { closeImport(); return true; }
+    if (!$("esheet").hidden) { cancelEd(); return true; }
+    if (!$("shsheet").hidden) { closeShare(); return true; }
     if (wOpen) { closeWidgets(); return true; }
     if (sheetMode === "settings") { closeSheet(); return true; }
     return false;
@@ -1738,10 +3150,7 @@ html.has-glass #glass { display: block; }
     document.addEventListener("input", onInput);
     document.addEventListener("change", onChange);
     document.addEventListener("keydown", (e) => {
-      if (e.key !== "Escape") return;
-      if (!$("editor").hidden) closeEditor(false);
-      else if (wOpen) closeWidgets();
-      else if (sheetMode === "settings") closeSheet();
+      if (e.key === "Escape") window.onAndroidBack();
     });
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) { lastSig = ""; tick(); }
@@ -1756,7 +3165,10 @@ html.has-glass #glass { display: block; }
     if (window.ResizeObserver) new ResizeObserver(scheduleGlassPath).observe($("app"));
     showWallpaper();
     tick();
-    if (!cls) openSheet("first");
+    ensureFlow();   // немає розкладу — привітання, немає класу — вибір класу
+    // Застосунок відкрили посиланням на розклад (у браузері для перевірки — код після # в адресі).
+    if (IN_APP) window.onIncomingCode();
+    else if (window.RozkladCode && window.RozkladCode.find(window.location.hash)) openImport(window.location.hash);
     (function loop() {
       setTimeout(() => { tick(); loop(); }, 1000 - (Date.now() % 1000) + 15);
     })();
@@ -1791,26 +3203,26 @@ html.has-glass #glass { display: block; }
     <div class="tbl lessons" id="lessons"></div>
   </section>
 
-  <section class="extra">
+  <section class="extra" id="secYear">
     <h2 class="title">СТРУКТУРА НАВЧАЛЬНОГО РОКУ</h2>
     <div class="tbl info year" id="yearTbl"></div>
     <h2 class="title">ДО КАНІКУЛ</h2>
     <div id="countdown"></div>
   </section>
 
-  <section class="extra">
+  <section class="extra" id="secMeal">
     <h2 class="title">ГРАФІК ХАРЧУВАННЯ</h2>
     <div class="box" id="mealMine" hidden></div>
     <div class="tbl info meal" id="mealTbl"></div>
   </section>
 
-  <section class="extra">
+  <section class="extra" id="secEvac">
     <h2 class="title">ПЛАН ЕВАКУАЦІЇ</h2>
     <div class="box" id="evacMine" hidden></div>
     <div class="tbl info evac" id="evacTbl"></div>
   </section>
 
-  <section class="extra">
+  <section class="extra" id="secDuty">
     <h2 class="title">ЧЕРГУВАННЯ УЧНІВ</h2>
     <div class="box" id="dutyMine" hidden></div>
     <div class="tbl info duty" id="dutyTbl"></div>
@@ -1824,6 +3236,17 @@ html.has-glass #glass { display: block; }
       <button type="button" id="sclose" class="icon" aria-label="Закрити">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
+    </div>
+
+    <div id="gSched">
+      <div class="group">Розклад</div>
+      <div class="box sbox"><div class="big" id="sName"></div><div class="sub" id="sMeta"></div></div>
+      <div class="row2">
+        <button type="button" id="sShare">Поділитися</button>
+        <button type="button" id="sEdit">Змінити</button>
+      </div>
+      <button type="button" class="reset" id="sImport">Отримати: посилання, код або файл</button>
+      <p class="note" id="sNote" hidden></p>
     </div>
 
     <div class="group" id="gClass">Клас</div>
@@ -1876,6 +3299,14 @@ html.has-glass #glass { display: block; }
 
       <div class="group">Віджети</div>
       <button type="button" class="reset" id="wOpen">Налаштувати віджети</button>
+
+      <div id="about">
+        <div class="group">Про застосунок</div>
+        <a class="author" id="authorLink" target="_blank" rel="noopener">
+          <span class="logo" id="aboutLogo"></span>
+          <span class="author-text"><span class="aname" id="authorName">Розклад</span><small id="authorTg" hidden></small><small id="aboutVer" hidden></small></span>
+        </a>
+      </div>
     </div>
 
     <p class="foot" id="foot"></p>
@@ -1936,6 +3367,162 @@ html.has-glass #glass { display: block; }
         </div>
         <button type="button" class="reset" id="wApplyAll">Застосувати цей стиль до всіх віджетів</button>
         <p class="note" id="wNote" hidden></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Перший запуск: розкладу ще немає -->
+<div class="sheet" id="welcome" hidden>
+  <div class="panel welcome">
+    <span class="appicon" id="welIcon"><svg viewBox="18 18 72 72" aria-hidden="true"><rect x="18" y="18" width="72" height="72" fill="#000"/><path fill="#00c853" d="M32 54.3H76V63.7H32Z"/><path fill="#fff" d="M32 35H76V45H32Z"/><path fill="none" stroke="#fff" stroke-width="3" d="M32 35H76V73H32ZM32 54.3H76M32 63.7H76M44 45V73"/></svg></span>
+    <h1 class="wname">РОЗКЛАД</h1>
+    <p class="wtext">Дзвінки, уроки й перерви на кожен день — і віджети на робочий стіл.</p>
+    <p class="note" id="welNote" hidden></p>
+    <div class="group">Отримати розклад</div>
+    <p class="note">Відкрийте посилання або наведіть камеру телефону на QR-код, яким з вами поділилися. Підійде й код чи файл.</p>
+    <button type="button" class="reset" id="welPaste">Вставити посилання, код або файл</button>
+    <div class="group">Скласти самому</div>
+    <p class="note">Впишіть дзвінки й уроки — потім ними можна поділитися з друзями чи всім класом.</p>
+    <button type="button" class="reset" id="welCreate">Скласти розклад</button>
+  </div>
+</div>
+
+<!-- Отримати: посилання, код або файл, яким поділилися -->
+<div class="sheet" id="isheet" hidden>
+  <div class="panel">
+    <div class="phead">
+      <h1>Отримати</h1>
+      <button type="button" id="iclose" class="icon" aria-label="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="note">Вставте посилання чи код, яким з вами поділилися, — або відкрийте файл.</p>
+    <textarea class="field" id="iText" rows="4" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="https://… або RZ1…"></textarea>
+    <div class="row2">
+      <button type="button" id="iPaste">Вставити</button>
+      <button type="button" id="iCheck" class="sel">Відкрити</button>
+    </div>
+    <button type="button" class="reset" id="iFileBtn">Відкрити файл</button>
+    <input type="file" id="iFile" accept=".json,application/json" hidden>
+    <p class="note err" id="iErr" hidden></p>
+    <div id="iPrev" hidden>
+      <div class="group">Що всередині</div>
+      <div class="box sbox"><div class="big" id="iName"></div><div class="sub" id="iMeta" hidden></div></div>
+      <p class="note">Застосовано буде те, що позначено.</p>
+      <div class="crows parts" id="iParts"></div>
+      <p class="note" id="iCmp" hidden></p>
+      <div class="note err" id="iWarn" hidden></div>
+      <div id="iClsBox">
+        <div class="group">Ваш клас</div>
+        <div class="opts" id="iCls"></div>
+      </div>
+      <button type="button" class="reset sel" id="iApply">Застосувати</button>
+    </div>
+  </div>
+</div>
+
+<!-- Поділитися: QR-код, посилання, код -->
+<div class="sheet" id="shsheet" hidden>
+  <div class="panel">
+    <div class="phead">
+      <h1>Поділитися</h1>
+      <button type="button" id="shclose" class="icon" aria-label="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="group">Чим поділитися</div>
+    <div class="crows parts" id="shParts"></div>
+    <div id="shScopeBox">
+      <div class="group">Для якого класу</div>
+      <div class="opts" id="shScope"></div>
+    </div>
+    <div class="qrbox" id="shQr" role="img" aria-label="QR-код"></div>
+    <p class="note" id="shHint"></p>
+    <div class="btns">
+      <button type="button" class="wide sel" id="shSend">Надіслати посилання</button>
+      <div class="row2">
+        <button type="button" id="shCopyLink">Копіювати посилання</button>
+        <button type="button" id="shCopyCode">Копіювати код</button>
+      </div>
+      <button type="button" class="wide" id="shFile">Надіслати файлом</button>
+    </div>
+    <p class="note" id="shNote" hidden></p>
+  </div>
+</div>
+
+<!-- Редактор розкладу -->
+<div class="sheet" id="esheet" hidden>
+  <div class="panel">
+    <div class="phead">
+      <h1 id="eTitle">Розклад</h1>
+      <button type="button" id="eclose" class="icon" aria-label="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="group">Назва</div>
+    <input class="field" id="eName" maxlength="60" placeholder="Наприклад: Ліцей №5" autocomplete="off">
+    <div class="group">Навчальний рік</div>
+    <input class="field" id="eYear" maxlength="60" placeholder="2026–2027 навчальний рік" autocomplete="off">
+
+    <div class="group">Дзвінки</div>
+    <div class="tbl etbl ebells" id="eBells"></div>
+    <div class="row2">
+      <button type="button" data-eadd="bell">Додати урок</button>
+      <button type="button" id="eBellDel">Прибрати останній</button>
+    </div>
+
+    <div class="group">Класи й уроки</div>
+    <div class="opts eclasses" id="eClasses"></div>
+    <p class="note" id="eNoCls" hidden>Класів ще немає. Можна лишити самі дзвінки — або додати клас кнопкою «+».</p>
+    <div id="eClsBox" hidden>
+      <div class="ecls-name">
+        <input class="field" id="eClsName" maxlength="12" placeholder="Назва класу, напр. 7-А" autocomplete="off">
+        <button type="button" id="eClsDel">Видалити клас</button>
+      </div>
+      <div class="days edays" id="eDays" role="tablist" aria-label="День тижня"></div>
+      <div class="tbl etbl elessons" id="eLessons"></div>
+      <p class="note">Порожній рядок — уроку немає (вікно).</p>
+    </div>
+    <datalist id="eSubj"></datalist>
+
+    <div class="group">Семестри</div>
+    <div class="tbl etbl eper" id="eTerms"></div>
+    <button type="button" class="reset" data-eadd="terms">Додати семестр</button>
+
+    <div class="group">Канікули</div>
+    <div class="tbl etbl eper" id="eHolidays"></div>
+    <button type="button" class="reset" data-eadd="holidays">Додати канікули</button>
+
+    <details class="emore" id="eMore">
+      <summary>Харчування, евакуація, чергування</summary>
+      <p class="note">Необов’язково. Класи в рядку пишіть через кому: «7-А, 7-Б» або проміжком «10–11» — тоді рядок свого класу підсвічується.</p>
+      <div class="group">Графік харчування</div>
+      <div class="tbl etbl eper" id="eMeals"></div>
+      <button type="button" class="reset" data-eadd="meals">Додати рядок</button>
+      <div class="group">План евакуації</div>
+      <div class="tbl etbl eper" id="eEvac"></div>
+      <button type="button" class="reset" data-eadd="evac">Додати рядок</button>
+      <div class="group">Чергування</div>
+      <div class="tbl etbl eper" id="eDuty"></div>
+      <button type="button" class="reset" data-eadd="duty">Додати рядок</button>
+    </details>
+
+    <div class="note err" id="eErr" hidden></div>
+  </div>
+  <div class="ebar">
+    <div class="panel">
+      <div id="eAsk" hidden>
+        <p>Зміни не збережено.</p>
+        <div class="row2">
+          <button type="button" id="eDiscard">Вийти без змін</button>
+          <button type="button" id="eStay" class="sel">Залишитись</button>
+        </div>
+      </div>
+      <div class="row2" id="eMain">
+        <button type="button" id="eCancel">Скасувати</button>
+        <button type="button" id="eSave" class="sel">Зберегти</button>
       </div>
     </div>
   </div>

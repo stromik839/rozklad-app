@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex">
+<title>Розклад</title>
+<!--
+  Сторінка, на яку ведуть посилання й QR-коди розкладу з застосунку «Розклад».
+  Код розкладу — після # в адресі: браузер нікуди його не надсилає, усе відбувається тут, на телефоні.
+  Сторінка пропонує відкрити розклад у застосунку, завантажити застосунок або скопіювати код.
+  Публікується через GitHub Pages із папки docs (див. README).
+-->
+<style>
+@font-face {
+  font-family: "Rozklad Serif";
+  src: url("fonts/RozkladSerif-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root {
+  --bg: #ffffff; --fg: #000000; --line: #000000;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #000000; --fg: #ffffff; --line: #ffffff; color-scheme: dark; }
+}
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body {
+  font-family: "Rozklad Serif", "Times New Roman", "Liberation Serif", Tinos, "Noto Serif", serif;
+  font-weight: 700; font-size: 17px; line-height: 1.3;
+  -webkit-text-size-adjust: 100%;
+}
+main {
+  max-width: 480px; margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) 16px calc(env(safe-area-inset-bottom, 0px) + 32px);
+  text-align: center;
+}
+/* Значок застосунку — той самий, що на робочому столі */
+.appicon { display: block; width: 88px; height: 88px; margin: 0 auto; border-radius: 22px; overflow: hidden; }
+.appicon svg { display: block; width: 100%; height: 100%; }
+h1 { margin: 14px 0 4px; font-size: 26px; letter-spacing: .08em; }
+.lead { margin: 0 0 18px; }
+.card { margin: 0 0 14px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 12px; }
+.card .lbl { font-size: 14px; }
+.card .big { margin-top: 2px; font-size: 22px; overflow-wrap: anywhere; }
+.card .sub { margin-top: 2px; font-size: 14px; }
+.btn {
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px;
+  margin: 10px 0 0; padding: 8px 14px; border: 2px solid var(--line); border-radius: 12px;
+  font: inherit; color: var(--fg); background: var(--bg); text-decoration: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn.main { color: var(--bg); background: var(--fg); }
+.btn:active { opacity: .75; }
+.note { margin: 10px 0 0; font-size: 15px; }
+.steps { margin: 18px 0 0; padding: 0; list-style: none; text-align: left; font-size: 15px; }
+.steps li { margin: 0 0 8px; padding-left: 30px; position: relative; }
+.steps li::before {
+  counter-increment: s; content: counter(s); position: absolute; left: 0; top: -1px;
+  width: 22px; height: 22px; line-height: 20px; text-align: center; font-size: 13px;
+  border: 2px solid var(--line); border-radius: 50%;
+}
+.steps { counter-reset: s; }
+.warn { margin: 0 0 14px; padding: 10px 12px; border: 2px dashed var(--line); border-radius: 12px; }
+small.muted { display: block; margin-top: 22px; font-size: 13px; opacity: .7; }
+</style>
+</head>
+<body>
+<main>
+  <span class="appicon"><svg viewBox="18 18 72 72" aria-hidden="true"><rect x="18" y="18" width="72" height="72" fill="#000"/><path fill="#00c853" d="M32 54.3H76V63.7H32Z"/><path fill="#fff" d="M32 35H76V45H32Z"/><path fill="none" stroke="#fff" stroke-width="3" d="M32 35H76V73H32ZM32 54.3H76M32 63.7H76M44 45V73"/></svg></span>
+  <h1>РОЗКЛАД</h1>
+  <p class="lead" id="lead">Дзвінки, уроки й перерви на кожен день — і віджети на робочий стіл.</p>
+
+  <p class="warn" id="noApp" hidden>Схоже, застосунок «Розклад» ще не встановлено. Завантажте його кнопкою нижче, встановіть — і поверніться на цю сторінку.</p>
+
+  <div id="withCode" hidden>
+    <div class="card" id="info">
+      <div class="lbl">Що всередині</div>
+      <div class="big" id="name">Розклад</div>
+      <div class="sub" id="meta" hidden></div>
+    </div>
+    <a class="btn main" id="open" href="#">Відкрити в застосунку «Розклад»</a>
+    <a class="btn" id="get" href="#">Завантажити застосунок</a>
+    <button type="button" class="btn" id="copy">Скопіювати код</button>
+    <p class="note" id="copied" hidden></p>
+    <ol class="steps">
+      <li>Якщо «Розклад» ще не встановлено — завантажте його і встановіть (телефон може попросити дозволу встановлювати застосунки з браузера).</li>
+      <li>Натисніть «Відкрити в застосунку» і там — «Застосувати».</li>
+      <li>Не відкривається (наприклад, сторінку відкрито всередині Telegram)? Скопіюйте код і вставте його в застосунку: «Отримати».</li>
+    </ol>
+  </div>
+
+  <div id="noCode" hidden>
+    <a class="btn main" id="get2" href="#">Завантажити застосунок</a>
+    <p class="note">Розкладом діляться прямо із застосунку: QR-кодом, посиланням або файлом.</p>
+  </div>
+
+  <p class="note" id="notAndroid" hidden>Застосунок «Розклад» працює на телефонах з Android.</p>
+  <small class="muted">Розклад зберігається лише на вашому телефоні.</small>
+</main>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+
+  // Репозиторій визначаємо з адреси сторінки (ім’я.github.io/репозиторій) — так сторінка переживе перейменування.
+  const host = location.hostname.match(/^([^.]+)\.github\.io$/i);
+  const repoPath = location.pathname.split("/").filter(Boolean)[0];
+  const repo = host && repoPath ? host[1] + "/" + repoPath : "stromik839/rozklad-app";
+  const APK = "https://github.com/" + repo + "/releases/latest/download/Rozklad.apk";
+  const PACKAGE = "ua.school.rozklad";
+
+  /* Код — та сама схема, що в застосунку (ShareCode.java, code.js). */
+  const B36 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const TAIL = [0, 2, 4, 5, 7];
+  function find(text) {
+    const m = String(text || "").toUpperCase().match(/RZ1[0-9A-Z]{8,}/g);
+    return m ? m.reduce((a, b) => (b.length > a.length ? b : a)) : "";
+  }
+  function fromB36(s) {
+    const full = Math.floor(s.length / 8), rc = s.length % 8, rb = TAIL.indexOf(rc);
+    if (rb < 0) return null;
+    const out = new Uint8Array(full * 5 + rb);
+    let o = 0;
+    for (let g = 0; g <= full; g++) {
+      const chars = g < full ? 8 : rc, bytes = g < full ? 5 : rb;
+      if (!chars) break;
+      let v = 0;
+      for (let k = 0; k < chars; k++) {
+        const d = B36.indexOf(s[g * 8 + k]);
+        if (d < 0) return null;
+        v = v * 36 + d;
+      }
+      if (v >= Math.pow(256, bytes)) return null;
+      for (let k = bytes - 1; k >= 0; k--) { out[o + k] = v % 256; v = Math.floor(v / 256); }
+      o += bytes;
+    }
+    return out;
+  }
+  let table = null;
+  function crc32(bytes) {
+    if (!table) {
+      table = new Uint32Array(256);
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+        table[n] = c >>> 0;
+      }
+    }
+    let c = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) c = table[(c ^ bytes[i]) & 255] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  // Назва й класи — щоб людина бачила, що саме відкриває. Старий браузер без розпакування — просто без подробиць.
+  async function peek(code) {
+    const b = fromB36(code.slice(3));
+    if (!b || b.length < 6) return { broken: true };
+    if (typeof DecompressionStream !== "function") return null;
+    try {
+      const s = new Blob([b.slice(0, b.length - 4)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      const raw = new Uint8Array(await new Response(s).arrayBuffer());
+      const n = b.length;
+      const st = ((b[n - 4] << 24) | (b[n - 3] << 16) | (b[n - 2] << 8) | b[n - 1]) >>> 0;
+      if (crc32(raw) !== st) return { broken: true };
+      return JSON.parse(new TextDecoder().decode(raw));
+    } catch (e) {
+      return { broken: true };
+    }
+  }
+  function plural(n, one, few, many) {
+    const a = n % 10, b = n % 100;
+    if (a === 1 && b !== 11) return one;
+    if (a >= 2 && a <= 4 && (b < 12 || b > 14)) return few;
+    return many;
+  }
+
+  // Інше посилання у вже відкритій вкладці змінює лише частину після # — перечитуємо сторінку.
+  window.addEventListener("hashchange", () => location.reload());
+
+  const android = /Android/i.test(navigator.userAgent);
+  const code = find(location.hash) || find(location.search);
+  const noApp = /[?&]app=none/.test(location.search);
+  $("get").href = $("get2").href = APK;
+  $("notAndroid").hidden = android;
+  $("noApp").hidden = !(noApp && code);
+
+  if (!code) {
+    $("noCode").hidden = false;
+    return;
+  }
+  $("withCode").hidden = false;
+  $("lead").textContent = "З вами поділилися розкладом.";
+
+  // Кнопка для Android: відкрити застосунок; якщо його немає — повернутися сюди з підказкою завантажити.
+  const back = location.origin + location.pathname + "?app=none#" + code;
+  $("open").href = android
+    ? "intent://import?c=" + code + "#Intent;scheme=rozklad;package=" + PACKAGE +
+      ";S.browser_fallback_url=" + encodeURIComponent(back) + ";end"
+    : "rozklad://import?c=" + code;
+  if (!android) $("open").hidden = true;
+
+  $("copy").addEventListener("click", async () => {
+    let ok = false;
+    try { await navigator.clipboard.writeText(code); ok = true; } catch (e) { ok = false; }
+    if (!ok) {
+      // запасний спосіб для старих браузерів
+      const t = document.createElement("textarea");
+      t.value = code;
+      document.body.appendChild(t);
+      t.select();
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      t.remove();
+    }
+    const n = $("copied");
+    n.textContent = ok ? "Код скопійовано. Відкрийте «Розклад» → «Отримати» і вставте його."
+      : "Не вдалося скопіювати автоматично. Скопіюйте всю адресу сторінки — застосунок її теж зрозуміє.";
+    n.hidden = false;
+  });
+
+  peek(code).then((p) => {
+    if (!p) return;
+    if (p.broken) {
+      $("name").textContent = "Посилання пошкоджене";
+      $("meta").textContent = "Попросіть надіслати його ще раз — повністю.";
+      $("meta").hidden = false;
+      $("open").hidden = true;
+      $("copy").hidden = true;
+      return;
+    }
+    // Що саме надіслали: розклад (частинами чи весь) і/або оформлення.
+    const has = (k) => Object.prototype.hasOwnProperty.call(p, k);
+    const cls = Array.isArray(p.classes) ? p.classes : [];
+    const meta = [];
+    if (has("classes") || has("schedule")) {
+      meta.push("уроки" + (cls.length === 1 ? " " + cls[0] + " класу" : cls.length ? " (" + cls.length + " " + plural(cls.length, "клас", "класи", "класів") + ")" : ""));
+    }
+    if (has("bells")) meta.push("дзвінки й перерви");
+    if (has("terms") || has("holidays")) meta.push("навчальний рік");
+    if (has("meals")) meta.push("харчування");
+    if (has("evacuation")) meta.push("евакуація");
+    if (has("duty")) meta.push("чергування");
+    const schedule = meta.length > 0;
+    if (has("look")) meta.push("оформлення");
+    const title = typeof p.title === "string" ? p.title.trim() : "";
+    $("name").textContent = schedule ? title || "Розклад" : "Оформлення";
+    if (!schedule && has("look")) {
+      $("lead").textContent = "З вами поділилися оформленням для «Розкладу».";
+      // Лише оформлення: замість повтору назви — що саме в ньому.
+      const l = p.look && typeof p.look === "object" ? p.look : {};
+      meta.length = 0;
+      if (l.theme) meta.push(l.theme === "dark" ? "чорна тема" : l.theme === "light" ? "біла тема" : "тема як у системі");
+      if (l.colors && typeof l.colors === "object" && Object.keys(l.colors).length) meta.push("кольори");
+      if (typeof l.radius === "number") meta.push("кути " + l.radius + "%");
+      if (l.wp) meta.push("вигляд шпалер");
+      if (l.widget) meta.push("стиль віджетів");
+    }
+    const txt = meta.join(", ");
+    $("meta").textContent = txt ? txt.charAt(0).toUpperCase() + txt.slice(1) : "";
+    $("meta").hidden = !txt;
+  });
+})();
+</script>
+</body>
+</html>

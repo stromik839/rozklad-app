@@ -72,9 +72,15 @@ final class WidgetConfig {
         return ctx.getSharedPreferences(Store.PREFS, Context.MODE_PRIVATE);
     }
 
+    /** Свої налаштування віджета; новий віджет бере стиль, отриманий разом з оформленням (якщо є). */
     static WidgetConfig load(Context ctx, int id, String kind) {
-        return fromJson(prefs(ctx).getString("widget_" + id, null), kind);
+        SharedPreferences p = prefs(ctx);
+        String own = p.getString("widget_" + id, null);
+        return fromJson(own != null ? own : p.getString(STYLE, null), kind);
     }
+
+    /** Стиль для нових віджетів (без того, що віджет показує, і без фото). */
+    static final String STYLE = "widget_style";
 
     /**
      * apply() одразу змінює налаштування в пам’яті (їх бачить і віджет, і прибирання фото),

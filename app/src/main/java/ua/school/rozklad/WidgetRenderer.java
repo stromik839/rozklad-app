@@ -64,7 +64,7 @@ final class WidgetRenderer {
         return b.toString();
     }
 
-    /** Запасна картинка з повідомленням, якщо дані не прочитались. */
+    /** Запасна картинка з повідомленням (розкладу ще немає або він не прочитався); довгий текст — у кілька рядків. */
     static Bitmap message(String text, boolean dark, Typeface tf, int w, int h, float dp) {
         Bitmap bmp = Bitmap.createBitmap(Math.max(1, w), Math.max(1, h), Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
@@ -74,7 +74,27 @@ final class WidgetRenderer {
         p.setShadowLayer(2.5f * dp, 0, 0.6f * dp, dark ? 0xCC000000 : 0xCCFFFFFF);
         p.setTextSize(14 * dp);
         p.setTextAlign(Paint.Align.CENTER);
-        c.drawText(fit(p, text, w - 12 * dp), w / 2f, h / 2f, p);
+        float max = w - 16 * dp;
+        List<String> lines = new ArrayList<>();
+        String line = "";
+        for (String word : text.split(" ")) {
+            String tryLine = line.isEmpty() ? word : line + " " + word;
+            if (line.isEmpty() || p.measureText(tryLine) <= max) {
+                line = tryLine;
+            } else {
+                lines.add(line);
+                line = word;
+            }
+        }
+        if (!line.isEmpty()) lines.add(line);
+        while (lines.size() > 4) lines.remove(lines.size() - 1);
+        float lh = 14 * dp * 1.3f;
+        Paint.FontMetrics fm = p.getFontMetrics();
+        float y = h / 2f - lh * (lines.size() - 1) / 2f - (fm.ascent + fm.descent) / 2;
+        for (String l : lines) {
+            c.drawText(fit(p, l, max), w / 2f, y, p);
+            y += lh;
+        }
         return bmp;
     }
 
@@ -89,14 +109,17 @@ final class WidgetRenderer {
         if (next != null) shownDay = next;
         int wdToday = ScheduleData.weekday(now);
         int wdShown = ScheduleData.weekday(shownDay);
-        String[] today = info.school ? d.lessons(cls, wdToday) : new String[0];
-        String[] shown = d.lessons(cls, wdShown);
+        // Розклад лише з дзвінків: кожен дзвінок — урок, а віджет показує дзвінки, хоч би що в ньому вибрано.
+        boolean noLessons = d.noLessons();
+        String[] today = !info.school ? new String[0] : noLessons ? d.allBells() : d.lessons(cls, wdToday);
+        String[] shown = noLessons ? d.allBells() : d.lessons(cls, wdShown);
+        boolean bellsTable = "bells".equals(cfg.kind) || noLessons;
 
         ScheduleData.State st;
         if (!info.school) {
             st = new ScheduleData.State();
             st.type = "off";
-        } else if (cls == null) {
+        } else if (cls == null && !noLessons) {
             st = new ScheduleData.State();
             st.type = "noclass";
         } else {
@@ -104,7 +127,7 @@ final class WidgetRenderer {
         }
         boolean live = info.school;   // підсвічуємо лише сьогоднішні уроки
 
-        if ("bells".equals(cfg.kind)) {
+        if (bellsTable) {
             m.title = "ДЗВІНКИ";
         } else {
             m.title = (cls == null ? "РОЗКЛАД" : cls.toUpperCase(UK) + " КЛАС") + ", "
@@ -113,7 +136,7 @@ final class WidgetRenderer {
         m.status = status(d, st, info, next);
 
         int[] sp = d.span(shown);
-        if ("bells".equals(cfg.kind)) {
+        if (bellsTable) {
             int rows = Math.max(7, Math.max(d.span(today)[1] + 1, sp[1] + 1));
             rows = Math.min(rows, d.bells.length);
             m.head = new String[] {"№", "Урок", "Перерва"};

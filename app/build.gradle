@@ -5,6 +5,15 @@ plugins {
 // Номер збірки з GitHub Actions — щоб кожна нова версія ставилась поверх попередньої.
 def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as Integer
 
+// Ключ підпису. Якщо GitHub Actions дав власний секретний ключ (див. README, «Свій ключ підпису») —
+// підписуємо ним. Інакше — старим ключем із репозиторію, як і раніше.
+def ownKeystore = System.getenv('ROZKLAD_KEYSTORE') ?: ''
+def useOwnKey = !ownKeystore.isEmpty() && new File(ownKeystore).exists()
+def keyPass = useOwnKey ? (System.getenv('ROZKLAD_KEYSTORE_PASSWORD') ?: '') : 'rozklad2026'
+if (useOwnKey && keyPass.isEmpty()) {
+    throw new GradleException('Немає пароля ключа підпису: додайте секрет ROZKLAD_KEYSTORE_PASSWORD.')
+}
+
 android {
     namespace 'ua.school.rozklad'
     compileSdk 35
@@ -20,11 +29,11 @@ android {
     // Один ключ для всіх збірок: інакше оновлення не встановиться поверх старої версії.
     signingConfigs {
         shared {
-            storeFile file('rozklad.p12')
-            storePassword 'rozklad2026'
-            keyAlias 'rozklad'
-            keyPassword 'rozklad2026'
-            storeType 'pkcs12'
+            storeFile = useOwnKey ? new File(ownKeystore) : file('rozklad.p12')
+            storePassword = keyPass
+            keyAlias = 'rozklad'
+            keyPassword = keyPass
+            storeType = 'pkcs12'
         }
     }
 
