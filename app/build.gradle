@@ -42,7 +42,11 @@ android {
             signingConfig signingConfigs.shared
         }
         release {
-            minifyEnabled false
+            // R8 стискає й перейменовує код — готовий застосунок важче вкрасти й прочитати.
+            // Правила-винятки (міст зі сторінкою, компоненти маніфесту) — у app/proguard-rules.pro.
+            minifyEnabled true
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.shared
         }
     }

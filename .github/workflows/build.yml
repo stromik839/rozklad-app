@@ -18,6 +18,13 @@ jobs:
       - name: Check schedule (data.js)
         run: node tools/check-data.js app/src/main/assets/data.js
 
+      # Стискаємо код сторінки застосунку (robить його нечитабельним у готовому APK).
+      # Чіпає лише копію для складання — файли в репозиторії лишаються звичайними.
+      - name: Minify page code
+        run: |
+          npm install --no-save esbuild@0.28.2
+          node tools/minify-assets.mjs .
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

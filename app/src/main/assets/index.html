@@ -88,6 +88,8 @@ svg { display: block; }
 #wp {
   position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: -1;
   background: center / cover no-repeat; opacity: 0; transition: opacity .25s ease;
+  /* Окремий шар для відеочипа: під час прокрутки закріплене фото не перемальовується, а лише лишається на місці. */
+  transform: translateZ(0);
 }
 #wp.ready { opacity: 1; }
 #wp::after { content: ""; position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000; opacity: var(--dim); }
@@ -97,7 +99,7 @@ html.has-wp .title, html.has-wp .legend { text-shadow: 0 0 2px var(--bg), 0 0 5p
    прокрутки телефон не розмиває й не перемальовує нічого — лише зсуває маску. */
 #glass { display: none; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; pointer-events: none; }
 html.has-glass #glass { display: block; }
-#glass img { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; }
+#glass img { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; transform: translateZ(0); }
 .glass-dim { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: var(--dim-color); }
 
 #app { position: relative; max-width: 620px; margin: 0 auto; padding: 8px 10px 16px; }
@@ -1834,6 +1836,10 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     const ver = name ? "Розклад" + (v ? ", версія " + v : "") : v ? "Версія " + v : "";
     $("aboutVer").textContent = ver;
     $("aboutVer").hidden = !ver;
+    // Напис про авторство (хто власник застосунку) — видно в самому застосунку.
+    const copy = name ? "© " + now().getFullYear() + " " + name : "";
+    $("aboutCopy").textContent = copy;
+    $("aboutCopy").hidden = !copy;
     const link = $("authorLink");
     if (tg) link.href = tg.url;
     else link.removeAttribute("href");
@@ -3304,7 +3310,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
         <div class="group">Про застосунок</div>
         <a class="author" id="authorLink" target="_blank" rel="noopener">
           <span class="logo" id="aboutLogo"></span>
-          <span class="author-text"><span class="aname" id="authorName">Розклад</span><small id="authorTg" hidden></small><small id="aboutVer" hidden></small></span>
+          <span class="author-text"><span class="aname" id="authorName">Розклад</span><small id="authorTg" hidden></small><small id="aboutVer" hidden></small><small id="aboutCopy" hidden></small></span>
         </a>
       </div>
     </div>

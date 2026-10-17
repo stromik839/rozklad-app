@@ -1,0 +1,42 @@
+УСІ ПРАВА ЗАХИЩЕНО / ВСЕ ПРАВА ЗАЩИЩЕНЫ
+
+© 2026 𝗞𝗿𝘆𝘀𝗺𝗲𝗱 𝗱𝗲𝘃𝗲𝗹𝗼𝗽𝗲𝗿 (Krysmed developer)
+Telegram: https://t.me/+Awp124F8mthjNDIy
+
+Застосунок «Розклад» — вихідний код, дизайн, логотип і всі складові, крім
+зазначеного нижче шрифту, — є власністю автора. Ви можете переглядати цей код у
+цьому репозиторії, але без письмового дозволу автора НЕ дозволяється:
+
+  • видавати цей застосунок, його код або дизайн за свій;
+  • поширювати, публікувати чи завантажувати в магазини застосунків (зокрема
+    Google Play) копії, перейменовані чи змінені версії цього застосунку;
+  • використовувати код або його частини в інших проєктах;
+  • прибирати чи змінювати відомості про автора.
+
+Дозволено особисте некомерційне використання самого застосунку й складання APK
+для себе з цього репозиторію.
+
+Приналежність автора підтверджують: власний секретний ключ підпису APK (телефон
+встановлює оновлення лише з тим самим ключем) і напис про автора в налаштуваннях
+застосунку.
+
+---
+
+Виняток. Шрифт app/src/main/assets/fonts/RozkladSerif-Bold.ttf — це змінена версія
+Liberation Serif Bold і поширюється за ліцензією SIL Open Font License 1.1; її
+текст лежить поруч із шрифтом (fonts/LICENSE-LiberationSerif.txt) і в docs/fonts.
+Цей виняток стосується лише шрифту.
+
+---
+
+ENGLISH SUMMARY
+
+All rights reserved. © 2026 Krysmed developer.
+The «Розклад» (Rozklad) app — its source code, design and logo — is the property
+of the author. You may view the code in this repository, but you may not pass it
+off as your own, redistribute or publish it (including to app stores), reuse its
+code in other projects, or remove the author attribution, without the author's
+written permission. Personal, non-commercial use and building the APK for
+yourself are allowed. The bundled font (RozkladSerif-Bold.ttf) is a modified
+Liberation Serif licensed under the SIL Open Font License 1.1 (see the license
+file next to the font); that exception applies to the font only.
