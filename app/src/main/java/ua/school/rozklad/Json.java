@@ -88,7 +88,7 @@ final class Json {
         for (int k = 0; k < v.length(); k++) {
             char c = v.charAt(k);
             if (c == '"' || c == '\\') b.append('\\').append(c);
-            else if (c < 0x20) b.append(String.format("\\u%04x", (int) c));
+            else if (c < 0x20 || c == 0x2028 || c == 0x2029) b.append(String.format("\\u%04x", (int) c));
             else b.append(c);
         }
         return b.append('"').toString();

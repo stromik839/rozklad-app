@@ -34,6 +34,8 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
@@ -114,7 +116,8 @@ public class MainActivity extends Activity {
             @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
                                              FileChooserParams params) {
-                return openPicker(callback, wantsImage(params));
+                boolean many = params != null && params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;
+                return openPicker(callback, wantsImage(params), many);
             }
         });
         web.loadUrl(PAGE);
@@ -307,15 +310,20 @@ public class MainActivity extends Activity {
      * Фото: системний вибір фото (Android 13+), інакше — галерея/файли.
      * Файл розкладу: системний вибір файлів (будь-який тип — JSON часто позначено як «невідомий»).
      */
-    private boolean openPicker(ValueCallback<Uri[]> callback, boolean image) {
+    private boolean openPicker(ValueCallback<Uri[]> callback, boolean image, boolean many) {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         fileCallback = callback;
         Intent get = new Intent(Intent.ACTION_GET_CONTENT);
         get.addCategory(Intent.CATEGORY_OPENABLE);
         get.setType(image ? "image/*" : "*/*");
-        Intent[] tries = image && Build.VERSION.SDK_INT >= 33
-                ? new Intent[] { new Intent(MediaStore.ACTION_PICK_IMAGES), get }
-                : new Intent[] { get };
+        if (many) get.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);   // кілька фото одразу (блок «Фото»)
+        Intent pick = null;
+        if (image && Build.VERSION.SDK_INT >= 33) {
+            pick = new Intent(MediaStore.ACTION_PICK_IMAGES);
+            int max = Math.min(20, MediaStore.getPickImagesMaxLimit());
+            if (many && max > 1) pick.putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, max);
+        }
+        Intent[] tries = pick != null ? new Intent[] { pick, get } : new Intent[] { get };
         for (Intent i : tries) {
             try {
                 startActivityForResult(i, REQ_PICK_FILE);
@@ -334,10 +342,13 @@ public class MainActivity extends Activity {
         if (requestCode != REQ_PICK_FILE || fileCallback == null) return;
         Uri[] result = null;
         if (resultCode == RESULT_OK && data != null) {
-            if (data.getData() != null) {
+            ClipData clip = data.getClipData();
+            if (clip != null && clip.getItemCount() > 0) {
+                // кілька вибраних фото
+                result = new Uri[clip.getItemCount()];
+                for (int i = 0; i < result.length; i++) result[i] = clip.getItemAt(i).getUri();
+            } else if (data.getData() != null) {
                 result = new Uri[] { data.getData() };
-            } else if (data.getClipData() != null && data.getClipData().getItemCount() > 0) {
-                result = new Uri[] { data.getClipData().getItemAt(0).getUri() };
             }
         }
         fileCallback.onReceiveValue(result);
@@ -522,6 +533,48 @@ public class MainActivity extends Activity {
                 }
             });
             return "";
+        }
+
+        /**
+         * Курси валют для блоку «Конвертер». Лише https і лише два сайти курсів — сторінка не може
+         * звернутися нікуди більше. Відповідь приходить у window.onHttp(id, текст або null).
+         */
+        @JavascriptInterface
+        public void httpGet(final String url, final String id) {
+            new Thread(() -> {
+                String body = null;
+                HttpURLConnection c = null;
+                try {
+                    URL u = new URL(url);
+                    String host = u.getHost();
+                    if ("https".equals(u.getProtocol()) && ("open.er-api.com".equals(host) || "api.coingecko.com".equals(host))) {
+                        c = (HttpURLConnection) u.openConnection();
+                        c.setConnectTimeout(10000);
+                        c.setReadTimeout(15000);
+                        c.setRequestProperty("Accept", "application/json");
+                        if (c.getResponseCode() == 200) {
+                            try (InputStream in = c.getInputStream()) {
+                                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                                byte[] buf = new byte[16 * 1024];
+                                int n;
+                                while ((n = in.read(buf)) > 0) {
+                                    out.write(buf, 0, n);
+                                    if (out.size() > 1024 * 1024) throw new IOException("too big");
+                                }
+                                body = new String(out.toByteArray(), StandardCharsets.UTF_8);
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    body = null;   // немає інтернету чи сайт не відповів — сторінка покаже останній курс
+                } finally {
+                    if (c != null) c.disconnect();
+                }
+                final String js = "window.onHttp && window.onHttp(" + Json.quote(id) + "," + (body == null ? "null" : Json.quote(body)) + ")";
+                runOnUiThread(() -> {
+                    if (web != null) web.evaluateJavascript(js, null);
+                });
+            }, "rozklad-net").start();
         }
 
         @JavascriptInterface

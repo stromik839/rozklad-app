@@ -132,6 +132,7 @@ html.has-glass #glass { display: block; }
 }
 .td + .td { border-left: 1px solid var(--line); }
 .td.subj { justify-content: flex-start; padding-left: 10px; white-space: normal; }
+.td { overflow: hidden; overflow-wrap: break-word; }
 .thead .td { font-size: 13px; }
 .td small { font-size: 12px; }
 .hl-now { background: var(--now); color: var(--on-now); }
@@ -199,7 +200,7 @@ html.has-glass #glass { display: block; }
 .cd-num { font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .cd-unit { font-size: 13px; }
 .cd-list { margin-top: 8px; }
-.cd-list .tr { grid-template-columns: 1fr auto; }
+.cd-list .tr { grid-template-columns: 1fr var(--cdw, auto); }
 .cd-list .td.time { padding: 2px 10px; font-variant-numeric: tabular-nums; }
 
 /* Налаштування і перший запуск */
@@ -401,6 +402,58 @@ select.field { -webkit-appearance: menulist; appearance: auto; padding-right: 4p
 details.emore { margin-top: 22px; }
 details.emore summary { font-size: 17px; cursor: pointer; }
 
+/* ---------- Блоки головного екрана: свій порядок, розмір, кольори, прозорість, розмиття ---------- */
+#app > .blk-off { display: none !important; }
+#app > section.blk-first { margin-top: 0; border-top: 0; }
+#app > section.top.blk-sep { margin-top: 16px; border-top: 5px double var(--line); }
+#app > section.blk-c { color: var(--fg); }
+/* Збільшений блок: текст у клітинках переноситься на другий рядок, а не вилазить і не обрізається */
+#app > section.blk-big .td { white-space: normal; flex-wrap: wrap; row-gap: 0; text-align: center; }
+/* Додаткові шари «скла» для блоків зі своїм розмиттям */
+.glass-x { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; pointer-events: none; }
+.glass-x img { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; max-width: none; transform: translateZ(0); }
+/* Фото: сітка з різними розмірами, кути — як у всього інтерфейсу */
+.gal { display: grid; grid-template-columns: repeat(var(--cols, 2), minmax(0, 1fr)); grid-auto-rows: var(--rh, 120px);
+  gap: var(--gap, 8px); grid-auto-flow: dense; width: var(--fw, 100%); margin: 0 auto; }
+.gal.framed { padding: var(--gap, 8px); border: 2px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.gi { position: relative; overflow: hidden; border-radius: var(--radius); isolation: isolate; transform: translateZ(0); }
+.gi img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.gi i { position: absolute; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }
+.gi i.hue { mix-blend-mode: color; }
+.gal-empty { padding: 18px 10px; text-align: center; border: 2px dashed var(--line); border-radius: var(--radius); }
+/* Конвертер валют */
+.fx .tr { grid-template-columns: 1fr; min-height: 52px; }
+.fx.calc .tr { grid-template-columns: 1fr 1fr; }
+.fx .td { font-size: 20px; }
+.fxin { width: 100%; min-width: 0; padding: 2px 4px; font: inherit; color: inherit; text-align: right; background: transparent;
+  border: 0; border-bottom: 1px dashed currentColor; border-radius: 0; -webkit-user-select: text; user-select: text; }
+.fxin:focus { outline: none; border-bottom-style: solid; }
+.fxnote { display: block; width: 100%; min-height: 0; margin-top: 6px; padding: 2px 0; border: 0; background: transparent;
+  font-size: 13px; text-align: center; opacity: .85; }
+.fxnote:active { background: transparent; color: var(--fg); opacity: .5; }
+/* Налаштування блоків */
+.lb { margin-top: 8px; border: 2px solid var(--line); border-radius: var(--radius); overflow: hidden; background: var(--panel); }
+.lb-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; font-size: 17px; }
+.lb-h small { display: block; font-size: 13px; opacity: .8; }
+.lb-b { display: grid; grid-template-columns: 44px 44px 1fr 1fr; gap: 1px; background: var(--line); border-top: 1px solid var(--line); }
+.lb-b button { min-height: 44px; border: 0; padding: 0 6px; font-size: 15px; }
+.lb-b button.armed { background: var(--fg); color: var(--bg); }
+.lb-set { padding: 4px 12px 14px; border-top: 1px solid var(--line); }
+.lb-set .group { margin-top: 16px; font-size: 15px; }
+.lb-set .opts button { min-height: 44px; font-size: 16px; }
+.lb-set .swatches { padding: 0; border: 0; }
+.lb-set .field { margin-top: 6px; }
+.mini { min-height: 34px; margin-top: 6px; padding: 0 10px; font-size: 14px; border-radius: var(--radius); }
+.cap { margin-top: 6px; font-size: 13px; opacity: .85; }
+.li { margin-top: 10px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.li-h { display: flex; align-items: center; gap: 10px; padding: 6px; }
+.li-h img { flex: none; width: 56px; height: 56px; object-fit: cover; border-radius: calc(var(--radius) / 2); }
+.li-h .sp { flex: 1; font-size: 14px; }
+.li-h button { min-height: 40px; min-width: 40px; padding: 0 8px; border-radius: calc(var(--radius) / 2); }
+.li-b { padding: 0 8px 10px; }
+.sw-none { grid-column: 1 / -1; min-height: 40px; font-size: 15px; border-radius: calc(var(--radius) / 2); }
+select.field { min-height: 44px; }
+
 @media (max-width: 340px) {
   body { font-size: 15px; }
   .val, .cd-num { font-size: 26px; }
@@ -408,7 +461,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
 @media (orientation: landscape) and (min-width: 700px) {
   #app { max-width: 1180px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; align-items: start; }
   .bar { grid-column: 1 / -1; }
-  .bottom, .extra { margin-top: 0; border-top: 0; }
+  .bottom, .extra, #app > section.top.blk-sep { margin-top: 0; border-top: 0; }
 }
 </style>
 <script src="app.js"></script>
@@ -428,6 +481,9 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   let D = null;
   let BELLS = [], TERMS = [], HOLIDAYS = [], YEAR = "", CLASSES = [], SCHEDULE = {};
   let MEALS = [], EVACUATION = [], DUTY = [];
+  // Блоки головного екрана (див. «Головний екран»): null — усе як було.
+  let LAY = null, FXR = null, cdWidthKey = "", blocksStyled = false, fxBusy = 0, netSeq = 0;
+  const glassX = {}, gUrls = {}, netCb = {};
   let nsdKey = "", nsdVal = null;   // кеш «наступний навчальний день»
 
   /* Кольори тем за замовчуванням і набір готових кольорів для налаштувань */
@@ -857,6 +913,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     const c = document.documentElement.classList;
     c.toggle("has-wp", !!wpData);
     if (typeof scheduleGlassPath === "function" && document.readyState !== "loading") scheduleGlassPath();
+    applyBlockStyles(false);
   }
   function applyColors() {
     const p = palette(effectiveMode());
@@ -1159,6 +1216,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       const p = splitDur(r.target - ms);
       setText(r.el, p.d + " дн. " + pad(p.h) + ":" + pad(p.m) + ":" + pad(p.s));
     }
+    syncCdWidth();
   }
 
   /* ---------- Харчування, евакуація, чергування ---------- */
@@ -1227,7 +1285,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   /* ---------- Щосекундне оновлення ---------- */
   // Головний екран закритий налаштуваннями чи редактором фото — його щосекундні числа не видно.
   function covered() {
-    for (const id of ["sheet", "wsheet", "editor", "welcome", "isheet", "shsheet", "esheet"]) {
+    for (const id of ["sheet", "wsheet", "editor", "welcome", "isheet", "shsheet", "esheet", "lsheet"]) {
       const el = $(id);
       if (el && !el.hidden) return true;
     }
@@ -1303,7 +1361,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       renderLegend(st, today);
       renderDays(wd, todayWd);
       renderLessons(wd, info.school && wd === d.getDay() ? st : null);
-      scheduleGlassPath();
+      afterRender();
     }
     const extraSig = k + "|" + cls;
     if (extraSig !== lastExtra) {
@@ -1318,7 +1376,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       renderMeals();
       renderEvacuation();
       renderDuty(todayWd);
-      scheduleGlassPath();
+      afterRender();
     }
     if (!covered()) {
       if (seen.status && leftEl && typeof st.left === "number") setText(leftEl, fmtLeft(st.left));
@@ -1326,7 +1384,9 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       if (seen.meal) updateMealHint(d, info);
     }
     if (countdownExpired(ms)) lastExtra = "";   // канікули почались чи скінчились — наступна секунда перемалює таблиці
+    if (LAY && ms - fxCheckAt > 600000) { fxCheckAt = ms; fxRefresh(false); }
   }
+  let fxCheckAt = 0;
 
   /* ---------- Шпалери: показ, обрізка, масштаб і розмиття ---------- */
   let wpImg = null;       // розкодоване фото
@@ -1376,11 +1436,11 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     setBg(el, wpUrl, L ? L.dw + "px " + L.dh + "px" : "cover", L ? L.x + "px " + L.y + "px" : "center");
   }
   // Розмиття малюється один раз у зменшеному вигляді, а екран його лише розтягує.
-  function makeBlurred(draft) {
+  function makeBlurred(draft, level) {
     const W = window.innerWidth, H = window.innerHeight;
     const L = coverLayout(W, H, wpCrop);
     if (!L || !wpImg) return "";
-    const px = wpBlur / 5;                                  // 1–20 px
+    const px = (level !== undefined ? level : wpBlur) / 5;  // 1–20 px
     let k = Math.min(1, Math.max(0.2, 3 / px));             // наскільки зменшити
     if (draft) k /= 2;
     const cw = Math.max(1, Math.round(W * k)), ch = Math.max(1, Math.round(H * k));
@@ -1411,7 +1471,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     try { return c2.toDataURL("image/jpeg", 0.85); } catch (e) { return ""; }
   }
   // Маска «скла»: контури всіх таблиць і кнопок головного екрана одним шляхом.
-  const PANELS = ".today, .bar button, .tbl, .status, .days, .box, .cd-main";
+  const PANELS = ".today, .bar button, .tbl, .status, .days, .box, .cd-main, .gal.framed";
   function rrect(x, y, w, h, tl, tr, br, bl) {
     const f = (n) => Math.round(n * 2) / 2;
     x = f(x); y = f(y); w = f(w); h = f(h);
@@ -1421,21 +1481,31 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       "V" + (y + tl) + "A" + tl + " " + tl + " 0 0 1 " + (x + tl) + " " + y + "Z";
   }
   function updateGlassPath() {
-    if (!document.documentElement.classList.contains("has-glass")) return;
-    const g = $("glass");
-    const G = g.getBoundingClientRect();
-    let d = "";
-    for (const p of $("app").querySelectorAll(PANELS)) {
+    const layers = [];
+    if (document.documentElement.classList.contains("has-glass")) layers.push({ lv: wpBlur, el: $("glass") });
+    for (const lv in glassX) layers.push({ lv: +lv, el: glassX[lv].el });
+    if (!layers.length) return;
+    const G = layers[0].el.getBoundingClientRect();
+    const d = {};
+    for (const L of layers) d[L.lv] = "";
+    const list = $("app").querySelectorAll(PANELS);
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      const lv = levelOf(p);
+      if (d[lv] === undefined) continue;
       const r = p.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
       const cs = getComputedStyle(p);
+      const z = zoomOf(p);
       const lim = Math.min(r.width, r.height) / 2;
-      const rad = (v) => Math.min(lim, parseFloat(v) || 0);
-      d += rrect(r.left - G.left, r.top - G.top, r.width, r.height,
+      const rad = (v) => Math.min(lim, (parseFloat(v) || 0) * z);
+      d[lv] += rrect(r.left - G.left, r.top - G.top, r.width, r.height,
         rad(cs.borderTopLeftRadius), rad(cs.borderTopRightRadius), rad(cs.borderBottomRightRadius), rad(cs.borderBottomLeftRadius));
     }
-    const v = d ? "path('" + d + "')" : "inset(100%)";
-    if (g._clip !== v) { g._clip = v; g.style.clipPath = v; }
+    for (const L of layers) {
+      const v = d[L.lv] ? "path('" + d[L.lv] + "')" : "inset(100%)";
+      if (L.el._clip !== v) { L.el._clip = v; L.el.style.clipPath = v; }
+    }
   }
   let glassFrame = 0;
   let glassDirty = false;
@@ -1448,7 +1518,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   function paintWallpaper(draft) {
     const el = $("wp");
     const root = document.documentElement;
-    if (!wpData || !wpSize) { root.classList.remove("has-glass"); return; }
+    if (!wpData || !wpSize) { root.classList.remove("has-glass"); paintGlassX(draft); return; }
     sharpBg(el, wpCrop);
     if (wpBlur > 0) {
       const key = [wpVersion, window.innerWidth, window.innerHeight, wpBlur,
@@ -1464,6 +1534,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     } else {
       root.classList.remove("has-glass");
     }
+    paintGlassX(draft);
   }
   // Під час руху повзунка — не частіше одного разу за кадр і в спрощеній якості.
   let wpFrame = 0, wpDraft = false;
@@ -1486,6 +1557,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     wpVersion++;
     wpImg = null;
     wpSize = null;
+    dropGlassX();
     blurUrl = "";
     blurKey = "";
     document.documentElement.classList.remove("has-glass");
@@ -1933,7 +2005,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   }
   // Що показати, коли інших екранів немає: привітання (розкладу ще немає) або вибір класу.
   function ensureFlow() {
-    for (const id of ["isheet", "shsheet", "esheet"]) if (!$(id).hidden) return;
+    for (const id of ["isheet", "shsheet", "esheet", "lsheet"]) if (!$(id).hidden) return;
     if (!D) {
       $("welcome").hidden = false;
       return;
@@ -2969,6 +3041,795 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     return false;
   }
 
+  /* ===================================================================== */
+  /* ---------- Головний екран: блоки (таблиці, фото, конвертер валют), їхній порядок і вигляд ---------- */
+  // Вбудовані блоки — розділи сторінки; свої (фото, конвертер) створюються тут. LAY === null — усе як було.
+  const BLOCKS = [["bells", "secBells", "Дзвінки"], ["lessons", "secLessons", "Уроки"], ["year", "secYear", "Навчальний рік"],
+    ["meal", "secMeal", "Харчування"], ["evac", "secEvac", "Евакуація"], ["duty", "secDuty", "Чергування"]];
+  const BUILTIN_IDS = BLOCKS.map((b) => b[0]);
+  // Валюти й криптовалюти конвертера: код, підпис біля 1, знак біля суми, id на CoinGecko (для крипти).
+  const FX = [
+    ["UAH", "грн", "₴", ""], ["USD", "$", "$", ""], ["EUR", "€", "€", ""], ["PLN", "zł", "zł", ""], ["GBP", "£", "£", ""],
+    ["CZK", "Kč", "Kč", ""], ["CHF", "CHF", "CHF", ""], ["CAD", "C$", "C$", ""], ["TRY", "₺", "₺", ""], ["KZT", "₸", "₸", ""],
+    ["GEL", "₾", "₾", ""], ["MDL", "lei", "lei", ""], ["JPY", "¥", "¥", ""], ["CNY", "CN¥", "CN¥", ""],
+    ["GRAM", "GRAM", "GRAM", "the-open-network"], ["USDT", "USDT", "USDT", "tether"], ["USDC", "USDC", "USDC", "usd-coin"],
+    ["BTC", "BTC", "BTC", "bitcoin"], ["ETH", "ETH", "ETH", "ethereum"], ["SOL", "SOL", "SOL", "solana"],
+    ["BNB", "BNB", "BNB", "binancecoin"], ["XRP", "XRP", "XRP", "ripple"], ["TRX", "TRX", "TRX", "tron"],
+    ["DOGE", "DOGE", "DOGE", "dogecoin"], ["LTC", "LTC", "LTC", "litecoin"], ["NOT", "NOT", "NOT", "notcoin"]
+  ];
+  const FX_NAMES = { UAH: "Гривня", USD: "Долар США", EUR: "Євро", PLN: "Злотий", GBP: "Фунт стерлінгів", CZK: "Чеська крона",
+    CHF: "Швейцарський франк", CAD: "Канадський долар", TRY: "Турецька ліра", KZT: "Тенге", GEL: "Ларі", MDL: "Молдовський лей",
+    JPY: "Єна", CNY: "Юань", GRAM: "Gram (колишній Toncoin)", USDT: "Tether", USDC: "USD Coin", BTC: "Bitcoin", ETH: "Ethereum",
+    SOL: "Solana", BNB: "BNB", XRP: "XRP", TRX: "TRON", DOGE: "Dogecoin", LTC: "Litecoin", NOT: "Notcoin" };
+  const fxCur = (code) => FX.find((x) => x[0] === code) || FX[1];
+
+  function blkEl(id) {
+    const b = BLOCKS.find((x) => x[0] === id);
+    return b ? $(b[1]) : document.querySelector('#app > section[data-cx="' + id + '"]');
+  }
+  function blkName(id) {
+    const b = BLOCKS.find((x) => x[0] === id);
+    if (b) return b[2];
+    const c = LAY && LAY.cx[id];
+    if (!c) return id;
+    return (c.type === "img" ? "Фото" : "Конвертер " + c.from + " → " + c.to) + (c.title ? " — " + c.title : "");
+  }
+  const nOrNull = (v, a, b) => (v === null || v === undefined || v === "" || isNaN(+v) ? null : Math.min(b, Math.max(a, Math.round(+v))));
+  const hexOr = (v) => (HEX.test(String(v || "").toLowerCase()) ? String(v).toLowerCase() : "");
+  function normSt(s) {
+    if (!s || typeof s !== "object") return null;
+    const o = {};
+    const size = nOrNull(s.size, 70, 150);
+    if (size !== null && size !== 100) o.size = size;
+    if (hexOr(s.bg)) o.bg = hexOr(s.bg);
+    if (hexOr(s.fg)) o.fg = hexOr(s.fg);
+    const cl = nOrNull(s.clear, 0, 100);
+    if (cl !== null) o.clear = cl;
+    const bl = nOrNull(s.blur, 0, 100);
+    if (bl !== null) o.blur = bl;
+    return Object.keys(o).length ? o : null;
+  }
+  function normCx(c) {
+    if (!c || typeof c !== "object") return null;
+    const title = clean(c.title, 40);
+    if (c.type === "img") {
+      const items = (Array.isArray(c.items) ? c.items : []).filter((it) => it && /^gi_[A-Za-z0-9]{1,40}$/.test(it.k)).slice(0, 40)
+        .map((it) => ({ k: it.k, w: clampInt(it.w, 1, 4, 1), h: clampInt(it.h, 1, 4, 1), tr: clampInt(it.tr, 0, 100, 0),
+          blur: clampInt(it.blur, 0, 100, 0), inv: !!it.inv, ov: hexOr(it.ov), ova: clampInt(it.ova, 0, 100, 50), hue: hexOr(it.hue) }));
+      return { type: "img", title: title, cols: clampInt(c.cols, 1, 4, 2), rh: clampInt(c.rh, 50, 400, 120),
+        gap: clampInt(c.gap, 0, 24, 8), frame: !!c.frame, fw: clampInt(c.fw, 40, 100, 100), items: items };
+    }
+    if (c.type === "fx") {
+      const ok = (x) => FX.some((f) => f[0] === x);
+      return { type: "fx", title: title, from: ok(c.from) ? c.from : "USD", to: ok(c.to) ? c.to : "UAH",
+        calc: c.calc !== false, amt: clean(c.amt, 16) };
+    }
+    return null;
+  }
+  function normLayout(o) {
+    if (!o || typeof o !== "object" || !Array.isArray(o.order)) return null;
+    const L = { order: [], off: {}, st: {}, cx: {} };
+    const cx = o.cx && typeof o.cx === "object" ? o.cx : {};
+    for (const id of o.order) {
+      if (typeof id !== "string" || L.order.indexOf(id) >= 0) continue;
+      if (BUILTIN_IDS.indexOf(id) >= 0) L.order.push(id);
+      else if (/^c[a-z0-9]{1,16}$/.test(id)) {
+        const c = normCx(cx[id]);
+        if (c) { L.order.push(id); L.cx[id] = c; }
+      }
+    }
+    for (const id of BUILTIN_IDS) if (L.order.indexOf(id) < 0) L.order.push(id);
+    for (const id of L.order) {
+      if (o.off && o.off[id]) L.off[id] = true;
+      const st = o.st ? normSt(o.st[id]) : null;
+      if (st) L.st[id] = st;
+    }
+    return L;
+  }
+  function loadLayout() {
+    let o = null;
+    try { o = JSON.parse(store.get("layout") || "null"); } catch (e) { o = null; }
+    LAY = normLayout(o);
+  }
+  function saveLayout() { store.set("layout", LAY ? JSON.stringify(LAY) : ""); }
+  function ensureLay() {
+    if (!LAY) LAY = normLayout({ order: BUILTIN_IDS.slice() });
+    return LAY;
+  }
+
+  // Порядок і видимість блоків — просто переставляємо розділи сторінки.
+  function applyLayout() {
+    const app = $("app");
+    const own = app.querySelectorAll("section[data-cx]");
+    for (let i = 0; i < own.length; i++) if (!LAY || !LAY.cx[own[i].dataset.cx]) own[i].remove();
+    const order = LAY ? LAY.order : BUILTIN_IDS;
+    for (const id of order) {
+      let el = blkEl(id);
+      if (!el && LAY && LAY.cx[id]) {
+        el = document.createElement("section");
+        el.className = "extra";
+        el.dataset.cx = id;
+      }
+      if (!el) continue;
+      app.appendChild(el);
+      el.classList.toggle("blk-off", !!(LAY && LAY.off[id]));
+    }
+    renderCustom("");
+    applyBlockStyles(false);
+    afterRender();
+  }
+  // Подвійна лінія — між блоками; перший видимий блок — без неї.
+  function markSeparators() {
+    let first = true;
+    for (const id of LAY ? LAY.order : BUILTIN_IDS) {
+      const el = blkEl(id);
+      if (!el) continue;
+      const vis = !!LAY && !LAY.off[id] && !el.hidden;
+      el.classList.toggle("blk-first", vis && first);
+      el.classList.toggle("blk-sep", vis && !first);
+      if (vis) first = false;
+    }
+  }
+  // Розмір, кольори, прозорість і розмиття кожного блоку.
+  function applyBlockStyles(draft) {
+    if (!LAY && !blocksStyled) return;
+    blocksStyled = !!LAY;
+    const p = palette(effectiveMode());
+    for (const id of LAY ? LAY.order : BUILTIN_IDS) {
+      const el = blkEl(id);
+      if (!el) continue;
+      const s = (LAY && LAY.st[id]) || {};
+      const st = el.style;
+      if (s.bg || s.clear !== undefined) {
+        const clear = s.clear !== undefined ? s.clear : wpClear;
+        const panel = rgba(s.bg || p.bg, wpData || s.clear !== undefined ? (100 - clear) / 100 : 1);
+        st.setProperty("--panel", panel);
+        st.setProperty("--panel-real", panel);
+      } else {
+        st.removeProperty("--panel");
+        st.removeProperty("--panel-real");
+      }
+      if (s.fg) {
+        st.setProperty("--fg", s.fg);
+        st.setProperty("--line", s.fg);
+      } else {
+        st.removeProperty("--fg");
+        st.removeProperty("--line");
+      }
+      el.classList.toggle("blk-c", !!s.fg);
+      el.classList.toggle("blk-big", !!s.size && s.size > 100);
+      st.zoom = s.size ? String(s.size / 100) : "";
+      if (s.blur !== undefined) el.dataset.blur = String(s.blur);
+      else delete el.dataset.blur;
+    }
+    cdWidthKey = "";
+    paintGlassX(!!draft);
+    scheduleGlassPath();
+  }
+  // Після перемальовування таблиць: лінії між блоками, довгий текст, ширина колонки відліку, «скло».
+  function afterRender() {
+    markSeparators();
+    fitCells($("app"));
+    cdWidthKey = "";
+    scheduleGlassPath();
+  }
+
+  /* ---------- Текст не вилазить за клітинку: довший обрізається «…» (повний — у підказці) ---------- */
+  function fitCells(scope) {
+    const list = scope.querySelectorAll(".td");
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const t = c.firstChild;
+      if (!t || t.nodeType !== 3 || c.childNodes.length !== 1 || c.classList.contains("time")) continue;
+      if (c._cut !== undefined && t.nodeValue !== c._cut) c._full = c._cut = undefined;   // клітинку вже перемалювали
+      const full = c._full !== undefined ? c._full : t.nodeValue;
+      if (c._full !== undefined) t.nodeValue = full;
+      if (c.scrollWidth <= c.clientWidth + 1) {
+        if (c._full !== undefined) { c._full = c._cut = undefined; c.removeAttribute("title"); }
+        continue;
+      }
+      let lo = 0, hi = full.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        t.nodeValue = full.slice(0, mid) + "…";
+        if (c.scrollWidth <= c.clientWidth + 1) lo = mid; else hi = mid - 1;
+      }
+      t.nodeValue = full.slice(0, lo).replace(/\s+$/, "") + "…";
+      c._full = full;
+      c._cut = t.nodeValue;
+      c.title = full;
+    }
+  }
+  // Скільки символів уміщується в найширшу клітинку блоку (показується біля розміру).
+  function capacity(el) {
+    const cells = el.querySelectorAll(".tbl .tr:not(.thead):not(.sect) .td");
+    let best = null, bw = 0;
+    for (let i = 0; i < cells.length; i++) {
+      const w = cells[i].getBoundingClientRect().width;
+      if (w > bw) { bw = w; best = cells[i]; }
+    }
+    if (!best) return 0;
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap";
+    probe.textContent = "Математика";
+    best.appendChild(probe);
+    const cw = probe.getBoundingClientRect().width / 10;
+    probe.remove();
+    const cs = getComputedStyle(best);
+    const pad = ((parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0)) * zoomOf(best);
+    return cw > 0 ? Math.max(1, Math.floor((bw - pad) / cw)) : 0;
+  }
+  // Колонка часу у списку канікул однакової ширини в усіх рядках (інакше лінія «з’їжджає»).
+  function syncCdWidth() {
+    const list = $("countdown").querySelector(".cd-list");
+    if (!list) return;
+    const cells = list.querySelectorAll(".time");
+    let key = "";
+    for (let i = 0; i < cells.length; i++) key += cells[i].textContent.length + ",";
+    if (key === cdWidthKey) return;
+    list.style.removeProperty("--cdw");
+    let w = 0;
+    for (let i = 0; i < cells.length; i++) w = Math.max(w, cells[i].getBoundingClientRect().width);
+    if (w < 1) { cdWidthKey = ""; return; }   // розділ схований — виміряємо, коли з’явиться
+    list.style.setProperty("--cdw", Math.ceil(w / zoomOf(list)) + "px");
+    cdWidthKey = key;
+  }
+
+  /* ---------- «Скло» для блоків зі своїм розмиттям: по одному розмитому фото на рівень ---------- */
+  function zoomOf(p) {
+    const sec = p.closest ? p.closest("#app > section") : null;
+    const z = sec && sec.style.zoom ? parseFloat(sec.style.zoom) : 1;
+    return z > 0 ? z : 1;
+  }
+  function levelOf(p) {
+    const sec = p.closest ? p.closest("section[data-blur]") : null;
+    return sec ? +sec.dataset.blur : wpBlur;
+  }
+  function neededLevels() {
+    const out = [];
+    if (!LAY || !wpData || !wpSize || !GLASS_OK) return out;
+    for (const id of LAY.order) {
+      const s = LAY.st[id];
+      if (LAY.off[id] || !s || s.blur === undefined || s.blur <= 0 || s.blur === wpBlur) continue;
+      if (out.indexOf(s.blur) < 0) out.push(s.blur);
+    }
+    return out.slice(0, 4);   // кожен рівень — ще одне фото на весь екран, тож не більше чотирьох
+  }
+  function dropGlassX() {
+    for (const lv in glassX) { glassX[lv].el.remove(); delete glassX[lv]; }
+  }
+  function paintGlassX(draft) {
+    const need = neededLevels();
+    for (const lv in glassX) if (need.indexOf(+lv) < 0) { glassX[lv].el.remove(); delete glassX[lv]; }
+    for (const lv of need) {
+      let L = glassX[lv];
+      if (!L) {
+        const el = document.createElement("div");
+        el.className = "glass-x";
+        el.setAttribute("aria-hidden", "true");
+        el.innerHTML = '<img alt=""><i class="glass-dim"></i>';
+        el.style.clipPath = "inset(100%)";
+        const g = $("glass");
+        g.parentNode.insertBefore(el, g.nextSibling);
+        L = glassX[lv] = { el: el, img: el.firstChild, key: "" };
+      }
+      const key = [wpVersion, window.innerWidth, window.innerHeight, lv, wpCrop.cx.toFixed(4), wpCrop.cy.toFixed(4),
+        wpCrop.zoom.toFixed(3), draft ? 1 : 0].join("|");
+      if (key !== L.key) {
+        L.key = key;
+        const url = makeBlurred(draft, lv);
+        if (url) L.img.src = url;
+      }
+    }
+  }
+
+  /* ---------- Свої блоки: фото й конвертер ---------- */
+  function gUrl(k) {
+    if (gUrls[k] === undefined) {
+      const d = bigStore.get(k);
+      gUrls[k] = d && d.indexOf("data:image/") === 0 ? photoUrl(d) : "";
+    }
+    return gUrls[k];
+  }
+  function renderCustom(onlyId) {
+    if (!LAY) return;
+    for (const id in LAY.cx) {
+      if (onlyId && id !== onlyId) continue;
+      const el = blkEl(id);
+      if (!el) continue;
+      const c = LAY.cx[id];
+      el.innerHTML = c.type === "img" ? imgHtml(c) : fxHtml(id, c);
+      if (c.type === "fx") fxFill(el, c);
+    }
+    scheduleGlassPath();
+  }
+  function imgHtml(c) {
+    const top = c.title ? "" : ";margin-top:12px";
+    let h = c.title ? '<h2 class="title">' + esc(c.title.toUpperCase()) + "</h2>" : "";
+    if (!c.items.length) {
+      return h + '<div class="gal-empty" style="' + top.slice(1) + '">Фото ще немає. Додайте їх: «Налаштування» → «Головний екран» → «Налаштувати».</div>';
+    }
+    h += '<div class="gal' + (c.frame ? " framed" : "") + '" style="--cols:' + c.cols + ";--rh:" + c.rh + "px;--gap:" + c.gap +
+      "px;--fw:" + c.fw + "%" + top + '">';
+    for (const it of c.items) {
+      const f = [];
+      if (it.blur) f.push("blur(" + (it.blur / 5).toFixed(1) + "px)");
+      if (it.inv) f.push("invert(1)");
+      h += '<div class="gi" style="grid-column:span ' + Math.min(it.w, c.cols) + ";grid-row:span " + it.h +
+        (it.tr ? ";opacity:" + ((100 - it.tr) / 100) : "") + '">' +
+        '<img alt="" src="' + gUrl(it.k) + '"' + (f.length ? ' style="filter:' + f.join(" ") + (it.blur ? ";transform:scale(1.08)" : "") + '"' : "") + ">" +
+        (it.ov ? '<i style="background:' + it.ov + ";opacity:" + (it.ova / 100) + '"></i>' : "") +
+        (it.hue ? '<i class="hue" style="background:' + it.hue + '"></i>' : "") + "</div>";
+    }
+    return h + "</div>";
+  }
+  // 1$ і 1 BTC: короткий знак — без пробілу, слово — з пробілом.
+  const unitAfter = (n, u) => n + (u.length === 1 ? "" : " ") + u;
+  function fmtNum(x) {
+    if (!isFinite(x)) return "—";
+    const a = Math.abs(x);
+    let s;
+    if (a === 0) s = "0";
+    else if (a >= 1000) s = x.toFixed(0);
+    else if (a >= 100) s = x.toFixed(1);
+    else if (a >= 1) s = x.toFixed(2);
+    else s = x.toFixed(Math.min(10, 3 - Math.floor(Math.log10(a)))).replace(/0+$/, "").replace(/\.$/, "");
+    const parts = s.split(".");
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    return parts.join(".");
+  }
+  const parseAmt = (s) => {
+    const v = parseFloat(String(s || "").replace(/\s/g, "").replace(",", "."));
+    return isFinite(v) ? v : null;
+  };
+  function fxHtml(id, c) {
+    const a = fxCur(c.from);
+    return '<h2 class="title">' + esc((c.title || "Курс валют").toUpperCase()) + "</h2>" +
+      '<div class="tbl fx' + (c.calc ? " calc" : "") + '">' +
+      '<div class="tr"><div class="td">' + esc(unitAfter("1", a[1])) + "</div>" +
+      (c.calc ? '<div class="td"><input class="fxin" data-fxin="' + id + '" inputmode="decimal" autocomplete="off" placeholder="0.00" value="' +
+        esc(c.amt) + '"><span>&nbsp;' + esc(a[2]) + "</span></div>" : "") + "</div>" +
+      '<div class="tr"><div class="td" data-fxrate>…</div>' + (c.calc ? '<div class="td" data-fxout>—</div>' : "") + "</div></div>" +
+      '<button type="button" class="fxnote" data-fxref></button>';
+  }
+  function usdPrice(code) {   // скільки доларів коштує одиниця валюти
+    if (code === "USD") return 1;
+    const f = FX.find((x) => x[0] === code);
+    if (!f || !FXR) return null;
+    if (f[3]) return FXR.cr[f[3]] > 0 ? FXR.cr[f[3]] : null;
+    const r = FXR.fiat && FXR.fiat[code];
+    return r > 0 ? 1 / r : null;
+  }
+  function fxRate(a, b) {
+    const pa = usdPrice(a), pb = usdPrice(b);
+    return pa && pb ? pa / pb : null;
+  }
+  function fxFill(el, c) {
+    if (!el) return;
+    const b = fxCur(c.to);
+    const r = fxRate(c.from, c.to);
+    const rate = el.querySelector("[data-fxrate]"), out = el.querySelector("[data-fxout]"), note = el.querySelector("[data-fxref]");
+    if (rate) rate.textContent = r === null ? "…" : "~ " + unitAfter(fmtNum(r), b[1]);
+    if (out) {
+      const amt = parseAmt(c.amt);
+      out.textContent = r === null || amt === null ? "—" : fmtNum(amt * r) + " " + b[2];
+    }
+    if (note) {
+      const crypto = [c.from, c.to].some((x) => !!fxCur(x)[3]);
+      const fiat = [c.from, c.to].some((x) => x !== "USD" && !fxCur(x)[3]);
+      const ts = Math.max(fiat && FXR ? FXR.ft || 0 : 0, crypto && FXR ? FXR.ct || 0 : 0);
+      const d = new Date(ts);
+      const when = !ts ? "" : d.toDateString() === new Date().toDateString() ? pad(d.getHours()) + ":" + pad(d.getMinutes()) :
+        pad(d.getDate()) + "." + pad(d.getMonth() + 1);
+      note.textContent = r === null ? (fxBusy ? "Оновлюю курс…" : "Курсу ще немає — потрібен інтернет. Натисніть, щоб оновити.")
+        : "Курс на " + when + " · ExchangeRate-API, CoinGecko · натисніть, щоб оновити";
+    }
+  }
+  function fxFillAll() {
+    if (!LAY) return;
+    for (const id in LAY.cx) if (LAY.cx[id].type === "fx") fxFill(blkEl(id), LAY.cx[id]);
+    fitCells($("app"));
+  }
+  function loadFxRates() {
+    try { FXR = JSON.parse(store.get("fxrates") || "null"); } catch (e) { FXR = null; }
+    if (!FXR || typeof FXR !== "object") FXR = {};
+    if (!FXR.cr || typeof FXR.cr !== "object") FXR.cr = {};
+  }
+  const saveFx = () => store.set("fxrates", JSON.stringify(FXR));
+  // Курси: звичайні валюти — ExchangeRate-API (за 1 $), криптовалюти — CoinGecko (у $). Без інтернету — останні збережені.
+  function fxRefresh(force) {
+    if (!LAY) return;
+    if (!FXR) loadFxRates();
+    const ids = [], fiat = [];
+    for (const id in LAY.cx) {
+      const c = LAY.cx[id];
+      if (c.type !== "fx" || LAY.off[id]) continue;
+      for (const code of [c.from, c.to]) {
+        const f = fxCur(code);
+        if (f[3]) { if (ids.indexOf(f[3]) < 0) ids.push(f[3]); }
+        else if (code !== "USD" && fiat.indexOf(code) < 0) fiat.push(code);
+      }
+    }
+    const t = Date.now();
+    if (fiat.length && (force || !FXR.fiat || t - (FXR.ft || 0) > 3600000 || fiat.some((x) => !FXR.fiat[x]))) {
+      fxBusy++;
+      httpGet("https://open.er-api.com/v6/latest/USD", (j) => {
+        fxBusy--;
+        if (j && j.result === "success" && j.rates && typeof j.rates === "object") { FXR.fiat = j.rates; FXR.ft = Date.now(); saveFx(); }
+        fxFillAll();
+      });
+    }
+    if (ids.length && (force || ids.some((x) => !(FXR.cr[x] > 0)) || t - (FXR.ct || 0) > 600000)) {
+      fxBusy++;
+      httpGet("https://api.coingecko.com/api/v3/simple/price?ids=" + ids.join(",") + "&vs_currencies=usd", (j) => {
+        fxBusy--;
+        let any = false;
+        if (j && typeof j === "object") for (const k of ids) if (j[k] && +j[k].usd > 0) { FXR.cr[k] = +j[k].usd; any = true; }
+        if (any) { FXR.ct = Date.now(); saveFx(); }
+        fxFillAll();
+      });
+    }
+    fxFillAll();
+  }
+  // Запит в інтернет: у застосунку — через оболонку (лише до двох сайтів курсів), у браузері — fetch.
+  function httpGet(url, cb) {
+    const done = (text) => {
+      let j = null;
+      try { j = text ? JSON.parse(text) : null; } catch (e) { j = null; }
+      cb(j);
+    };
+    if (IN_APP) {
+      if (typeof A.httpGet !== "function") { done(null); return; }
+      const id = "n" + (++netSeq);
+      netCb[id] = done;
+      try { A.httpGet(url, id); } catch (e) { delete netCb[id]; done(null); }
+      return;
+    }
+    if (!window.fetch) { done(null); return; }
+    window.fetch(url).then((r) => (r.ok ? r.text() : null)).then(done, () => done(null));
+  }
+  window.onHttp = (id, body) => {
+    const cb = netCb[id];
+    delete netCb[id];
+    if (cb) cb(body);
+  };
+
+  /* ---------- Вікно «Головний екран»: список блоків і їхні налаштування ---------- */
+  let lOpenId = "", lItemOpen = -1, lArmed = "", lPickFor = "";
+  let fxSaveTimer = 0;
+  function openLayout() {
+    ensureLay();
+    lOpenId = "";
+    lItemOpen = -1;
+    lArmed = "";
+    $("lsheet").hidden = false;
+    $("lsheet").scrollTop = 0;
+    renderLayoutUi();
+  }
+  function closeLayout() {
+    $("lsheet").hidden = true;
+    lArmed = "";
+    afterClose();
+  }
+  function lSlider(key, label, v, min, max, step, unit, reset) {
+    return '<div class="slider"><label><span>' + label + '</span><span data-lv="' + key + '" data-lu="' + unit + '">' + v + unit + "</span></label>" +
+      '<input type="range" data-lk="' + key + '" min="' + min + '" max="' + max + '" step="' + step + '" value="' + v + '"></div>' +
+      (reset ? '<button type="button" class="mini" data-lreset="' + key + '">Як загалом</button>' : "");
+  }
+  function lSwatches(key, cur, none) {
+    return '<div class="swatches"><button type="button" class="sw-none' + (cur ? "" : " sel") + '" data-lk="' + key + '" data-lval="">' + none + "</button>" +
+      SWATCHES.map((col) => '<button type="button" data-lk="' + key + '" data-lval="' + col + '"' + (col === cur ? ' class="sel"' : "") +
+        ' style="background:' + col + '" aria-label="' + col + '"></button>').join("") +
+      '<label class="sw-other"><span>Інший колір</span><input type="color" data-lk="' + key + '" value="' + (cur || "#808080") + '"></label></div>';
+  }
+  function lOpts(key, list, cur) {
+    return '<div class="opts" style="grid-template-columns:repeat(' + list.length + ',1fr)">' + list.map((x) =>
+      '<button type="button" data-lk="' + key + '" data-lval="' + x[0] + '"' + (String(x[0]) === String(cur) ? ' class="sel"' : "") + ">" + x[1] + "</button>").join("") + "</div>";
+  }
+  const upTo = (n) => { const a = []; for (let i = 1; i <= n; i++) a.push([i, String(i)]); return a; };
+  function fxSettings(c) {
+    const opt = (cur) => '<optgroup label="Валюти">' + FX.filter((f) => !f[3]).map((f) => '<option value="' + f[0] + '"' + (f[0] === cur ? " selected" : "") +
+      ">" + f[0] + " — " + esc(FX_NAMES[f[0]]) + "</option>").join("") + '</optgroup><optgroup label="Криптовалюти">' +
+      FX.filter((f) => f[3]).map((f) => '<option value="' + f[0] + '"' + (f[0] === cur ? " selected" : "") + ">" + f[0] + " — " +
+      esc(FX_NAMES[f[0]]) + "</option>").join("") + "</optgroup>";
+    return '<div class="group">З валюти</div><select class="field" data-lk="f.from">' + opt(c.from) + "</select>" +
+      '<div class="group">У валюту</div><select class="field" data-lk="f.to">' + opt(c.to) + "</select>" +
+      '<button type="button" class="reset" data-lk="f.swap" data-lval="1">Поміняти місцями</button>' +
+      '<div class="group">Поле для своєї суми</div>' + lOpts("f.calc", [[1, "Показувати"], [0, "Сховати"]], c.calc ? 1 : 0) +
+      '<button type="button" class="reset" data-lk="f.refresh" data-lval="1">Оновити курс зараз</button>';
+  }
+  function itemSettings(i, it, c) {
+    const pre = "i" + i + ".";
+    const open = lItemOpen === i;
+    let h = '<div class="li"><div class="li-h"><img alt="" src="' + gUrl(it.k) + '"><span class="sp">Фото ' + (i + 1) + "</span>" +
+      '<button type="button" data-limv="-1" data-li="' + i + '" aria-label="Раніше"' + (i ? "" : " disabled") + ">↑</button>" +
+      '<button type="button" data-limv="1" data-li="' + i + '" aria-label="Пізніше"' + (i < c.items.length - 1 ? "" : " disabled") + ">↓</button>" +
+      '<button type="button" data-liopen="' + i + '"' + (open ? ' class="sel"' : "") + ' aria-label="Налаштувати фото">⋯</button></div>';
+    if (open) {
+      h += '<div class="li-b"><div class="group">Ширина (клітинок сітки)</div>' + lOpts(pre + "w", upTo(c.cols), Math.min(it.w, c.cols)) +
+        '<div class="group">Висота (клітинок сітки)</div>' + lOpts(pre + "h", upTo(4), it.h) +
+        lSlider(pre + "tr", "Прозорість", it.tr, 0, 100, 5, "%") + lSlider(pre + "blur", "Розмиття", it.blur, 0, 100, 5, "%") +
+        '<div class="group">Інверсія кольорів</div>' + lOpts(pre + "inv", [[0, "Вимкнено"], [1, "Увімкнено"]], it.inv ? 1 : 0) +
+        '<div class="group">Накладання кольору</div>' + lSwatches(pre + "ov", it.ov, "Без накладання") +
+        (it.ov ? lSlider(pre + "ova", "Сила накладання", it.ova, 0, 100, 5, "%") : "") +
+        '<div class="group">Відтінок: усе фото в одному кольорі</div>' + lSwatches(pre + "hue", it.hue, "Без відтінку") +
+        '<button type="button" class="reset' + (lArmed === "i" + i ? " armed" : "") + '" data-lidel="' + i + '">' +
+        (lArmed === "i" + i ? "Точно прибрати це фото?" : "Прибрати фото") + "</button></div>";
+    }
+    return h + "</div>";
+  }
+  function imgSettings(c) {
+    let h = '<div class="group">Фото</div><button type="button" class="reset" data-laddimg>Додати фото</button>' +
+      '<div class="group">Стовпців у сітці</div>' + lOpts("g.cols", upTo(4), c.cols) +
+      '<p class="cap">Кожне фото займає стільки клітинок сітки, скільки задано в ньому (⋯): так можна поставити поруч великі й малі фото.</p>' +
+      lSlider("g.rh", "Висота клітинки", c.rh, 50, 400, 10, " px") + lSlider("g.gap", "Відступи", c.gap, 0, 24, 1, " px") +
+      lSlider("g.fw", "Ширина блоку", c.fw, 40, 100, 5, "%") +
+      '<div class="group">Рамка навколо фото</div>' + lOpts("g.frame", [[0, "Без рамки"], [1, "Як у таблиць"]], c.frame ? 1 : 0);
+    c.items.forEach((it, i) => { h += itemSettings(i, it, c); });
+    return h;
+  }
+  function blockSettings(id) {
+    const s = LAY.st[id] || {};
+    const c = LAY.cx[id];
+    let h = "";
+    if (c) {
+      h += '<div class="group">Назва</div><input class="field" data-lt="title" maxlength="40" autocomplete="off" value="' + esc(c.title) +
+        '" placeholder="' + (c.type === "fx" ? "Курс валют" : "Без назви") + '">';
+      h += c.type === "fx" ? fxSettings(c) : imgSettings(c);
+    }
+    h += '<div class="group">Вигляд блоку</div>' + lSlider("s.size", "Розмір", s.size || 100, 70, 150, 5, "%") + '<p class="cap" data-cap></p>' +
+      '<div class="group">Колір фону</div>' + lSwatches("s.bg", s.bg || "", "Як у теми") +
+      '<div class="group">Колір тексту й рамок</div>' + lSwatches("s.fg", s.fg || "", "Як у теми") +
+      lSlider("s.clear", "Прозорість", s.clear !== undefined ? s.clear : wpClear, 0, 100, 5, "%", s.clear !== undefined) +
+      lSlider("s.blur", "Розмиття під блоком", s.blur !== undefined ? s.blur : wpBlur, 0, 100, 5, "%", s.blur !== undefined) +
+      (wpData ? "" : '<p class="cap">Розмиття видно лише на шпалерах: «Налаштування» → «Шпалери».</p>');
+    return h;
+  }
+  function renderLayoutUi() {
+    const L = ensureLay();
+    let h = "";
+    L.order.forEach((id, i) => {
+      const off = !!L.off[id], own = !!L.cx[id];
+      const el = blkEl(id);
+      const empty = !own && el && el.hidden;
+      h += '<div class="lb" data-lb="' + id + '"><div class="lb-h"><span>' + esc(blkName(id)) +
+        (off ? "<small>Сховано</small>" : empty ? "<small>У розкладі цього немає — блок не видно</small>" : "") + "</span></div>" +
+        '<div class="lb-b"><button type="button" data-lmv="-1" aria-label="Вище"' + (i ? "" : " disabled") + ">↑</button>" +
+        '<button type="button" data-lmv="1" aria-label="Нижче"' + (i < L.order.length - 1 ? "" : " disabled") + ">↓</button>" +
+        (own ? '<button type="button" data-ldel' + (lArmed === id ? ' class="armed">Точно видалити?' : ">Видалити") + "</button>"
+          : '<button type="button" data-lvis>' + (off ? "Показати" : "Сховати") + "</button>") +
+        '<button type="button" data-lset' + (lOpenId === id ? ' class="sel"' : "") + ">Налаштувати</button></div>" +
+        (lOpenId === id ? '<div class="lb-set">' + blockSettings(id) + "</div>" : "") + "</div>";
+    });
+    $("lList").innerHTML = h;
+    const r = $("lReset");
+    r.classList.toggle("armed", lArmed === "reset");
+    r.textContent = lArmed === "reset" ? "Точно? Свої блоки й фото буде видалено" : "Повернути все як було";
+    if (lOpenId) requestAnimationFrame(() => updateCap(lOpenId));
+  }
+  function updateCap(id) {
+    const cap = document.querySelector('[data-lb="' + id + '"] [data-cap]');
+    if (!cap) return;
+    const el = blkEl(id);
+    const n = el && !el.classList.contains("blk-off") && !el.hidden ? capacity(el) : 0;
+    cap.textContent = n ? "У клітинку вміщується до " + n + " " + plural(n, "символу", "символів", "символів") +
+      ": довший текст обрізається «…», за таблицю нічого не вилазить." : "";
+  }
+  function setProp(id, key, val, live) {
+    const L = ensureLay();
+    const dot = key.indexOf(".");
+    const kind = key.slice(0, dot), prop = key.slice(dot + 1);
+    if (kind === "s") {
+      const s = Object.assign({}, L.st[id] || {});
+      if (val === null || val === "") delete s[prop];
+      else s[prop] = prop === "bg" || prop === "fg" ? val : +val;
+      const n = normSt(s);
+      if (n) L.st[id] = n; else delete L.st[id];
+      applyBlockStyles(live);
+      if (prop === "size") { fitCells($("app")); requestAnimationFrame(() => updateCap(id)); }
+    } else {
+      const c = L.cx[id];
+      if (!c) return;
+      if (kind === "f" || kind === "g") {
+        if (prop === "refresh") { fxRefresh(true); return; }
+        if (prop === "swap") { const t = c.from; c.from = c.to; c.to = t; }
+        else if (prop === "frame" || prop === "calc") c[prop] = +val === 1;
+        else if (prop === "from" || prop === "to") c[prop] = val;
+        else c[prop] = +val;
+      } else if (kind.charAt(0) === "i") {
+        const it = c.items[+kind.slice(1)];
+        if (!it) return;
+        if (prop === "inv") it.inv = +val === 1;
+        else if (prop === "ov" || prop === "hue") it[prop] = val;
+        else it[prop] = +val;
+      }
+      L.cx[id] = normCx(c);
+      renderCustom(id);
+      if (c.type === "fx") fxRefresh(false);
+    }
+    saveLayout();
+    if (!live) renderLayoutUi();
+  }
+  function addCustom(type) {
+    const L = ensureLay();
+    const id = "c" + Date.now().toString(36);
+    L.cx[id] = normCx(type === "img" ? { type: "img", items: [] } : { type: "fx", from: "USD", to: "UAH", calc: true, amt: "10" });
+    L.order.push(id);
+    lOpenId = id;
+    lItemOpen = -1;
+    lArmed = "";
+    saveLayout();
+    applyLayout();
+    renderLayoutUi();
+    if (type === "fx") fxRefresh(false);
+    else { lPickFor = id; $("lFile").click(); }   // одразу вибрати фото
+    requestAnimationFrame(() => { const el = document.querySelector('[data-lb="' + id + '"]'); if (el) el.scrollIntoView({ block: "start" }); });
+  }
+  function dropImages(c) {
+    if (!c || c.type !== "img") return;
+    for (const it of c.items) {
+      bigStore.set(it.k, "");
+      if (gUrls[it.k]) dropUrl(gUrls[it.k]);
+      delete gUrls[it.k];
+    }
+  }
+  function deleteCustom(id) {
+    const L = ensureLay();
+    dropImages(L.cx[id]);
+    delete L.cx[id];
+    delete L.st[id];
+    delete L.off[id];
+    L.order = L.order.filter((x) => x !== id);
+    lOpenId = lArmed = "";
+    saveLayout();
+    applyLayout();
+    renderLayoutUi();
+  }
+  function resetLayout() {
+    if (LAY) for (const id in LAY.cx) dropImages(LAY.cx[id]);
+    LAY = null;
+    saveLayout();
+    lOpenId = lArmed = "";
+    applyLayout();
+    renderLayoutUi();
+  }
+  function moveItem(id, i, dir) {
+    const c = LAY && LAY.cx[id];
+    const j = i + dir;
+    if (!c || j < 0 || j >= c.items.length) return;
+    const t = c.items[i];
+    c.items[i] = c.items[j];
+    c.items[j] = t;
+    if (lItemOpen === i) lItemOpen = j;
+    saveLayout();
+    renderCustom(id);
+    renderLayoutUi();
+  }
+  function deleteItem(id, i) {
+    const c = LAY && LAY.cx[id];
+    if (!c || !c.items[i]) return;
+    dropImages({ type: "img", items: [c.items[i]] });
+    c.items.splice(i, 1);
+    lItemOpen = -1;
+    lArmed = "";
+    saveLayout();
+    renderCustom(id);
+    renderLayoutUi();
+  }
+  async function onLayoutFiles(input) {
+    const files = Array.prototype.slice.call(input.files || []);
+    input.value = "";
+    const c = LAY && LAY.cx[lPickFor];
+    if (!files.length || !c || c.type !== "img") return;
+    for (const f of files.slice(0, 20)) {
+      let data = "";
+      try { data = await shrinkPhoto(f, 1600); } catch (e) { continue; }
+      const k = "gi_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+      if (!bigStore.set(k, data)) continue;
+      c.items.push({ k: k, w: 1, h: 1, tr: 0, blur: 0, inv: false, ov: "", ova: 50, hue: "" });
+    }
+    LAY.cx[lPickFor] = normCx(c);
+    saveLayout();
+    renderCustom(lPickFor);
+    if (!$("lsheet").hidden) renderLayoutUi();
+  }
+  function onLayoutClick(b) {
+    const d = b.dataset;
+    switch (b.id) {
+      case "lOpen": openLayout(); return true;
+      case "lclose": closeLayout(); return true;
+      case "lAddImg": addCustom("img"); return true;
+      case "lAddFx": addCustom("fx"); return true;
+      case "lReset":
+        if (lArmed !== "reset") { lArmed = "reset"; renderLayoutUi(); return true; }
+        resetLayout();
+        return true;
+      default: break;
+    }
+    if (d.fxref !== undefined) { fxRefresh(true); return true; }
+    const box = b.closest ? b.closest("[data-lb]") : null;
+    if (!box) return false;
+    const id = box.dataset.lb;
+    const L = ensureLay();
+    const i = L.order.indexOf(id);
+    if (d.lmv) {
+      const j = i + +d.lmv;
+      if (i < 0 || j < 0 || j >= L.order.length) return true;
+      L.order.splice(i, 1);
+      L.order.splice(j, 0, id);
+      saveLayout();
+      applyLayout();
+      renderLayoutUi();
+      return true;
+    }
+    if (d.lvis !== undefined) {
+      if (L.off[id]) delete L.off[id]; else L.off[id] = true;
+      saveLayout();
+      applyLayout();
+      renderLayoutUi();
+      return true;
+    }
+    if (d.ldel !== undefined) {
+      if (lArmed !== id) { lArmed = id; renderLayoutUi(); return true; }
+      deleteCustom(id);
+      return true;
+    }
+    if (d.lset !== undefined) { lOpenId = lOpenId === id ? "" : id; lItemOpen = -1; lArmed = ""; renderLayoutUi(); return true; }
+    if (d.lreset) { setProp(id, d.lreset, null); return true; }
+    if (d.laddimg !== undefined) { lPickFor = id; $("lFile").click(); return true; }
+    if (d.limv) { moveItem(id, +d.li, +d.limv); return true; }
+    if (d.liopen !== undefined) { lItemOpen = lItemOpen === +d.liopen ? -1 : +d.liopen; lArmed = ""; renderLayoutUi(); return true; }
+    if (d.lidel !== undefined) {
+      if (lArmed !== "i" + d.lidel) { lArmed = "i" + d.lidel; renderLayoutUi(); return true; }
+      deleteItem(id, +d.lidel);
+      return true;
+    }
+    if (d.lk && d.lval !== undefined) { setProp(id, d.lk, d.lval); return true; }
+    return false;
+  }
+  function onLayoutInput(t) {
+    if (t.dataset && t.dataset.fxin) {
+      const c = LAY && LAY.cx[t.dataset.fxin];
+      if (!c) return true;
+      c.amt = t.value.slice(0, 16);
+      fxFill(blkEl(t.dataset.fxin), c);
+      clearTimeout(fxSaveTimer);
+      fxSaveTimer = setTimeout(saveLayout, 500);
+      return true;
+    }
+    const box = t.closest ? t.closest("[data-lb]") : null;
+    if (!box) return false;
+    const id = box.dataset.lb;
+    if (t.dataset.lt === "title") {
+      const c = LAY && LAY.cx[id];
+      if (c) { c.title = clean(t.value, 40); saveLayout(); renderCustom(id); }
+      return true;
+    }
+    if (t.dataset.lk && t.type === "range") {
+      const lbl = box.querySelector('[data-lv="' + t.dataset.lk + '"]');
+      if (lbl) lbl.textContent = t.value + (lbl.dataset.lu || "");
+      setProp(id, t.dataset.lk, t.value, true);
+      return true;
+    }
+    if (t.dataset.lk && t.type === "color") { setProp(id, t.dataset.lk, t.value.toLowerCase(), true); return true; }
+    return false;
+  }
+  function onLayoutChange(t) {
+    if (t.id === "lFile") { onLayoutFiles(t); return true; }
+    if (t.dataset && t.dataset.fxin) { saveLayout(); return true; }
+    const box = t.closest ? t.closest("[data-lb]") : null;
+    if (!box) return false;
+    const id = box.dataset.lb;
+    if (t.tagName === "SELECT" && t.dataset.lk) { setProp(id, t.dataset.lk, t.value); return true; }
+    if (t.dataset.lk && (t.type === "range" || t.type === "color")) {
+      if (t.dataset.lk === "s.blur") applyBlockStyles(false);   // після перетягування — розмиття в повній якості
+      saveLayout();
+      renderLayoutUi();
+      return true;
+    }
+    return t.dataset.lt === "title";
+  }
+
   // Кнопки обміну розкладом і редактора.
   function onSchedClick(b) {
     const d = b.dataset;
@@ -3012,6 +3873,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     const b = e.target.closest ? e.target.closest("button") : null;
     if (!b) return;
     const d = b.dataset;
+    if (onLayoutClick(b)) return;
     if (onSchedClick(b)) return;
     if (onWidgetClick(b)) return;
     if (b.id === "gear" || b.id === "clsBtn") { openSheet("settings"); return; }
@@ -3064,6 +3926,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   }
   function onInput(e) {
     const t = e.target;
+    if (onLayoutInput(t)) return;
     if (onEdInput(t)) return;
     if (t.id === "iText") { setErr("iErr", ""); return; }
     const ws = W_SLIDERS[t.id];
@@ -3096,6 +3959,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   }
   function onChange(e) {
     const t = e.target;
+    if (onLayoutChange(t)) return;
     if (onEdInput(t)) {
       if (t.dataset.eles !== undefined) renderEdSubjects();   // новий предмет — у підказки
       if (t.id === "eClsName") renderEdExtras();              // нова назва — у списках чергування
@@ -3135,6 +3999,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
   };
   window.onAppResume = () => {
     applyColors();
+    fxRefresh(false);
     if (wOpen) { loadWidgets(); renderWidgetsUi(); }
     lastSig = "";
     lastExtra = "";
@@ -3146,6 +4011,7 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     if (!$("isheet").hidden) { closeImport(); return true; }
     if (!$("esheet").hidden) { cancelEd(); return true; }
     if (!$("shsheet").hidden) { closeShare(); return true; }
+    if (!$("lsheet").hidden) { closeLayout(); return true; }
     if (wOpen) { closeWidgets(); return true; }
     if (sheetMode === "settings") { closeSheet(); return true; }
     return false;
@@ -3164,11 +4030,15 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     let resizeTimer = 0;
     window.addEventListener("resize", () => {
       clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(layoutWallpaper, 120);
+      resizeTimer = setTimeout(() => { layoutWallpaper(); afterRender(); }, 120);
     });
     setupEditor();
     watchVisibility();
     if (window.ResizeObserver) new ResizeObserver(scheduleGlassPath).observe($("app"));
+    loadFxRates();
+    loadLayout();
+    applyLayout();
+    fxRefresh(false);
     showWallpaper();
     tick();
     ensureFlow();   // немає розкладу — привітання, немає класу — вибір класу
@@ -3196,14 +4066,14 @@ details.emore summary { font-size: 17px; cursor: pointer; }
     </button>
   </header>
 
-  <section class="top">
+  <section class="top" id="secBells">
     <h2 class="title">РОЗКЛАД ДЗВІНКІВ</h2>
     <div class="tbl bells" id="bells"></div>
     <div class="status" id="status"></div>
     <div class="legend" id="legend"></div>
   </section>
 
-  <section class="bottom">
+  <section class="bottom" id="secLessons">
     <h2 class="title" id="ltitle">РОЗКЛАД УРОКІВ</h2>
     <div class="days" id="days" role="tablist" aria-label="День тижня"></div>
     <div class="tbl lessons" id="lessons"></div>
@@ -3302,6 +4172,9 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       </div>
       <div class="crows" id="crows"></div>
       <button type="button" class="reset" id="creset">Скинути кольори цієї теми</button>
+
+      <div class="group">Головний екран</div>
+      <button type="button" class="reset" id="lOpen">Блоки: порядок, розмір, фото, конвертер</button>
 
       <div class="group">Віджети</div>
       <button type="button" class="reset" id="wOpen">Налаштувати віджети</button>
@@ -3425,6 +4298,27 @@ details.emore summary { font-size: 17px; cursor: pointer; }
       </div>
       <button type="button" class="reset sel" id="iApply">Застосувати</button>
     </div>
+  </div>
+</div>
+
+<!-- Головний екран: блоки (таблиці, фото, конвертер валют), їхній порядок і вигляд -->
+<div class="sheet" id="lsheet" hidden>
+  <div class="panel">
+    <div class="phead">
+      <h1>Головний екран</h1>
+      <button type="button" id="lclose" class="icon" aria-label="Закрити">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="note">Блоки йдуть згори вниз у такому порядку. ↑ ↓ — пересунути, «Налаштувати» — розмір, кольори, прозорість і розмиття блоку.</p>
+    <div id="lList"></div>
+    <div class="group">Додати блок</div>
+    <div class="row2">
+      <button type="button" id="lAddImg">Фото</button>
+      <button type="button" id="lAddFx">Конвертер валют</button>
+    </div>
+    <button type="button" class="reset" id="lReset">Повернути все як було</button>
+    <input type="file" id="lFile" accept="image/*" multiple hidden>
   </div>
 </div>
 
